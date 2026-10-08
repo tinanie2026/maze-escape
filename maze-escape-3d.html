@@ -649,6 +649,36 @@ const LEVEL9=[
  '##################################'];
 const NOTEBOOK={name:'Notebook Doodle',icon:'✏️',bg:'#f4f6fb',floorA:'#ffffff',floorB:'#eef2fb',wall:'#2a2a33',wallTop:'#55556a',wallEdge:'#101016',baddie:'🐝',decor:'',exit:'🏁',dark:false};
 function level9(){return parseMap(9,LEVEL9,'Notebook Doodle','🏁',NOTEBOOK)}
+// Level 10 is the green notebook course, read line by line: zoom pads, a beetle, rows of spikes to jump one after
+// another (triples and doubles), portal pads, a big zoom launcher, portals over spike fields, then jump onto F.
+const LEVEL10=[
+ '##############################',
+ '#S############################',
+ '#.############################',
+ '#.############################',
+ '#.############################',
+ '#.############################',
+ '#.############################',
+ '#..C.⇒..C..C...###############',
+ '##############.###############',
+ '##############...G...A.A.A.A.#',
+ '############################.#',
+ '#.....C......A.C.A...A.C.A...#',
+ '#.############################',
+ '#..A.A.A..A.A.A..A.A..A.A.A..#',
+ '############################.#',
+ '############....4#3.C.2#1.C..#',
+ '############.#################',
+ '############⇒⇒.....C...C...h##',
+ '###########################.##',
+ '#...C..qAAAAAp.C.QAAAAAP....##',
+ '#.############################',
+ '#...A...A...A..A.A..C....AT.A#',
+ '##############################'];
+const SPRINT={name:'Spike Sprint',icon:'🌿',bg:'#e3f1e6',floorA:'#ffffff',floorB:'#eef7f0',wall:'#1f7a3e',wallTop:'#43b066',wallEdge:'#0e4a24',baddie:'🪲',decor:'',exit:'🏁',dark:false};
+function level10(){const L=parseMap(10,LEVEL10,'Spike Sprint','🏁',SPRINT);L.canJump=true;L.startHearts=7;
+  // the beetle patrols the middle of line 2, leaving the landing spot and the spikes clear
+  const gh=L.ghosts[0];gh.path=[];for(let x=16;x<=19;x++)gh.path.push({x,y:9});gh.i=1;gh.x=17;gh.y=9;return L}
 function level1(){return parseMap(1,LEVEL1,'Hand-Drawn Garden','🏆')}
 function level2(){return parseMap(2,LEVEL2,'Swirl Valley','🎁')}
 
@@ -761,7 +791,7 @@ function finish(L){
   L.par=Math.ceil(sum*1.25)+L.candies.size*6+4;
   if(L.timed)L.timeLimit=Math.ceil(L.par*0.32)+25}
 
-function makeLevel(n){return n===1?level1():n===2?level2():n===3?level3():n===4?level4():n===5?level5():n===6?level6():n===7?level7():n===8?level8():n===9?level9():genLevel(n)}
+function makeLevel(n){return n===1?level1():n===2?level2():n===3?level3():n===4?level4():n===5?level5():n===6?level6():n===7?level7():n===8?level8():n===9?level9():n===10?level10():genLevel(n)}
 function solvable(L){
   if(L.buttons&&L.buttons.length){const r=bfs(L,L.start.x,L.start.y,()=>false);
     if(L.buttons.every(b=>r.dist.has(kk(b.x,b.y))))L.g=L.g.map(row=>row.map(v=>v==='s'?'.':v))}
@@ -922,7 +952,7 @@ function renderLevels(){
     const grid=document.createElement('div');grid.className='lv-grid';
     for(let i=1;i<=5;i++){const n=w*5+i,b=document.createElement('button');b.className='lv';
       const st=progress.stars[n]||0,locked=n>progress.unlocked;
-      const badge=[1,2,3,4,5,6,7,8,9].includes(n)?'✏️':isBoss(n)?'🦖':isTimed(n)?'⏱️':isNight(n)?'🌙':'';
+      const badge=n<=10?'✏️':isBoss(n)?'🦖':isTimed(n)?'⏱️':isNight(n)?'🌙':'';
       b.disabled=locked;b.setAttribute('aria-label',locked?`Level ${n}, locked`:`Level ${n}, ${st} stars`);
       b.innerHTML=(locked?'🔒':`${n}<span class="st">${'★'.repeat(st)}${'☆'.repeat(3-st)}</span>`)+(badge?`<span class="badge">${badge}</span>`:'');
       if(n===progress.unlocked){b.classList.add('current');cur=b}
@@ -941,10 +971,10 @@ const TIPS={
   7:['🗝️','Secret Towers','<ul><li>🤫 The first tower has two SECRET DOORS. They look like walls, but walk into the right one and it slides open. Look for a little sparkle ✨.</li><li>🌀 The portal in the middle of the spiral takes you to the second tower.</li><li>🚪 Some doors close in! Run through while they are open.</li><li>🧱 Some walls move up and down. Wait for a gap.</li><li>⤴ Jump over the fake wall to reach the last portal.</li></ul>'],
   8:['⚡','Zap Fortress','<ul><li>⚡ The walls are electric! Touch one and you zap back to the start.</li><li>🔷 These spikes never go down. JUMP over them!</li><li>⌨️ Press Space to jump, or tap the ⤴ button. You jump 2 squares the way you are facing.</li><li>🔑 The key is inside the C. Jump in, jump out, then open the treasure box.</li></ul>'],
   9:['✏️','Notebook Doodle','<ul><li>⚡ Yellow boost pads make you ZOOM super fast until you hit a wall!</li><li>⬇️ Zigzag down the striped tower.</li><li>🔢 In the hook, press the buttons in the right order: 1, then 2, then 3. Wrong order and they switch off!</li><li>🤫 The right order opens a secret room with a portal.</li></ul>'],
-  10:['🦖','Boss level: the Dino!','<ul><li>🦖 A hungry dino wakes up and chases you! It is slower than you, so keep moving.</li><li>🔑🔑 Two keys: open the yellow door first, then find the blue key.</li><li>✨ Glowing bubbles are power-ups: ⚡ zoom boots, ❤️ heart, 🛡️ shield, 🧭 compass, ❄️ freeze, 🔨 hammer.</li><li>🌀 Swirls zoom you across the maze.</li></ul>'],
-  11:['🌙','Night maze','It is dark! You can only see what is close to you. The exit always twinkles ✨, and a 🔦 lantern from the shop helps a lot.'],
+  10:['🌿','Spike Sprint','<ul><li>❤️ You start with 7 hearts!</li><li>⚡ Zoom pads shoot you along the path.</li><li>🔷 Jump the spikes one after another and land in the safe spots between them. Triples are tricky!</li><li>🌀 Portal pads hop you past walls and over big spike fields.</li><li>🏁 Jump over the last spike to land on F.</li></ul>'],
+  11:['🌙','A dark maze!','<ul><li>🌙 It is dark: you only see what is close. The exit twinkles ✨, and a 🔦 lantern from the shop helps.</li><li>🔑🔑 Two keys: open the yellow door first, then find the blue key.</li><li>✨ Glowing bubbles are power-ups: ⚡ boots, ❤️ heart, 🛡️ shield, 🧭 compass, ❄️ freeze, 🔨 hammer.</li></ul>'],
   12:['⏱️','Beat the clock!','Escape before the timer runs out. Grab ⏱️ for 20 more seconds!'],
-  15:['🔑🔑🔑','Three keys!','Yellow, blue, then pink. And watch out, the dino is back!'],
+  15:['🦖','Boss level: the Dino!','<ul><li>🦖 A hungry dino wakes up and chases you! It is slower than you, so keep moving.</li><li>🔑🔑🔑 Three keys: yellow, blue, then pink.</li></ul>'],
   17:['🦖','The Dino is everywhere!','From now on the dino is in every maze.'],
   25:['👑','The final maze!','Two dinos, three keys and the dark. Escape and you win the Rainbow Crown!'],
 };
@@ -956,7 +986,7 @@ function startLevel(n){
   closeModal();hideMap();L=makeLevel(n);
   S={x:L.start.x,y:L.start.y,ax:L.start.x,ay:L.start.y,anim:null,queued:null,run:null,face:1,
      keys:new Set(),opened:new Set(),candies:new Set(L.candies),gotKeys:new Set(),moves:0,
-     check:{...L.start},inv:0,hearts:3,lost:0,won:false,dead:false,bump:0,camX:null,camY:null,paused:false,
+     check:{...L.start},inv:0,hearts:L.startHearts||3,lost:0,won:false,dead:false,bump:0,camX:null,camY:null,paused:false,
      clock:0,timeLeft:L.timeLimit,fx:{},hammer:false,compass:null,hudKey:''};
   S.chasers=L.chasers.map(c=>({x:c.sx,y:c.sy,ax:c.sx,ay:c.sy,sx:c.sx,sy:c.sy,wake:3500,next:0,t0:0}));
   L.spikeAt=new Map(L.spikes.map(s=>[kk(s.x,s.y),s]));
@@ -973,7 +1003,7 @@ function startLevel(n){
 
 function updateHud(){
   $('#hTitle').innerHTML=`Level ${L.n} <small>${L.hand?L.name:L.theme.name}</small>`;
-  $('#hHearts').textContent='❤️'.repeat(Math.max(0,S.hearts))+'🤍'.repeat(Math.max(0,3-S.hearts));
+  $('#hHearts').textContent='❤️'.repeat(Math.max(0,S.hearts))+'🤍'.repeat(Math.max(0,(L.startHearts||3)-S.hearts));
   $('#hCandy').textContent=`🍭 ${L.candies.size-S.candies.size}/${L.candies.size}`;
   $('#hMoves').textContent=`👣 ${S.moves}`;
   $('#hKeys').hidden=!L.keys.length;
@@ -1085,14 +1115,14 @@ function arrive(){
 function applyPower(t){
   const now=performance.now(),dur={boots:7000,shield:7000,compass:9000,freeze:6000}[t];
   if(dur)S.fx[t]=Math.max(now,S.fx[t]||0)+dur;
-  if(t==='heart')S.hearts=Math.min(5,S.hearts+1);
+  if(t==='heart')S.hearts=Math.min(Math.max(5,L.startHearts||3),S.hearts+1);
   if(t==='hammer')S.hammer=true;
   if(t==='clock')S.timeLeft+=20;
   if(t==='compass')S.compass=null;
   if(t==='lantern')S.lantern=true;
   updateHud()}
 function bagUsable(id){
-  if(id==='heart')return S.hearts<5;if(id==='hammer')return!S.hammer&&L.g.some(r=>r.includes('x'));
+  if(id==='heart')return S.hearts<Math.max(5,L.startHearts||3);if(id==='hammer')return!S.hammer&&L.g.some(r=>r.includes('x'));
   if(id==='lantern')return!!L.fog&&!S.lantern;if(id==='clock')return!!L.timeLimit;return true}
 function openBag(){
   if(!S||S.won||S.dead)return;S.paused=true;S.bagAt=performance.now();
@@ -1117,7 +1147,7 @@ function hurt(kind){
   const fl=$('#flash');fl.style.opacity=.35;setTimeout(()=>fl.style.opacity=0,180);
   burst(S.x,S.y,'#ffffff',20);
   if(S.hearts<=0){fail('hearts');return}
-  toast(kind==='spike'?'Ouch, spikes! Wait until they hide.':kind==='dino'?'CHOMP! The 🦖 got you!':`Oops! The ${L.theme.baddie} got you!`);
+  toast(kind==='spike'?(L.canJump?'Ouch! Jump over the blue spikes.':'Ouch, spikes! Wait until they hide.'):kind==='dino'?'CHOMP! The 🦖 got you!':`Oops! The ${L.theme.baddie} got you!`);
   S.x=S.check.x;S.y=S.check.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=now+1500;S.compass=null;
   for(const c of S.chasers){c.x=c.sx;c.y=c.sy;c.ax=c.x;c.ay=c.y;c.wake=S.clock+2500;c.t0=0}}
 
