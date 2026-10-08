@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maze Escape</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Nunito:wght@600&display=swap">
+<style>
+:root{--ink:#2b2350;--paper:#fff8ec;--grape:#6c4cf5;--sun:#ffc93c;--leaf:#2f9e44;--pink:#ff5da2;--muted:#7a6f99}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(circle at 20% 15%,#d8f5d0 0,transparent 40%),radial-gradient(circle at 85% 80%,#ffe1ef 0,transparent 45%),var(--paper);
+  color:var(--ink);font-family:'Nunito',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px 16px;box-sizing:border-box;text-align:center}
+h1{font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif;font-size:clamp(2.6rem,11vw,5rem);line-height:.9;margin:0;color:var(--leaf);text-shadow:0 4px 0 #1e7a32}
+h1 span{display:block;color:var(--pink);text-shadow:0 4px 0 #c22f72}
+p{margin:0;font-size:1.1rem;color:var(--muted);max-width:34ch}
+.pick{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+a{font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif;font-size:1.6rem;text-decoration:none;color:#fff;background:var(--grape);padding:.6em 1.4em;border-radius:999px;box-shadow:0 6px 0 #4a2fc4;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+a small{font-family:'Nunito',system-ui,sans-serif;font-size:.85rem;font-weight:600;opacity:.9}
+a.three{background:var(--sun);color:var(--ink);box-shadow:0 6px 0 #d99a12}
+a:active{transform:translateY(4px);box-shadow:none}
+a:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+</style>
+</head>
+<body>
+<h1>Maze<span>Escape!</span></h1>
+<p>25 mazes drawn by a young maze designer. Help Zig the Bunny find the way out!</p>
+<div class="pick">
+  <a href="maze-escape.html">▶ Play 2D<small>works on every device</small></a>
+  <a class="three" href="maze-escape-3d.html">▶ Play 3D<small>best on a computer or tablet</small></a>
+</div>
+</body>
+</html>

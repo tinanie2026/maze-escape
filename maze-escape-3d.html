@@ -1,0 +1,1775 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maze Escape 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@600;800&display=swap">
+<style>
+/* Layout: one full-screen app; home → world map / shop → maze board with a top HUD and a thumb d-pad on touch screens */
+:root{
+  --ink:#2b2350; --paper:#fff8ec; --grape:#6c4cf5; --grape-dark:#4a2fc4;
+  --sun:#ffc93c; --leaf:#2f9e44; --pink:#ff5da2; --card:#ffffff; --muted:#7a6f99; --danger:#e8384f;
+  --display:'Baloo 2','Comic Sans MS','Chalkboard SE',system-ui,sans-serif;
+  --body:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font-family:var(--display);color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible{outline:3px solid var(--grape);outline-offset:3px}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.big-btn{font-size:1.5rem;font-weight:800;padding:.55em 1.6em;border-radius:999px;background:var(--grape);color:#fff;box-shadow:0 6px 0 var(--grape-dark);transition:transform .1s,box-shadow .1s}
+.big-btn:active{transform:translateY(5px);box-shadow:0 1px 0 var(--grape-dark)}
+.big-btn.alt{background:var(--sun);color:var(--ink);box-shadow:0 6px 0 #d99a12}
+.big-btn.alt:active{box-shadow:0 1px 0 #d99a12}
+.big-btn.pink{background:var(--pink);box-shadow:0 6px 0 #c22f72}
+.big-btn.small{font-size:1.1rem;padding:.45em 1.2em}
+
+/* HOME */
+#home{align-items:center;justify-content:center;justify-content:safe center;gap:18px;padding-inline:16px;padding-block:16px;text-align:center;overflow-y:auto;
+  background:radial-gradient(circle at 20% 15%,#d8f5d0 0,transparent 40%),radial-gradient(circle at 85% 80%,#ffe1ef 0,transparent 45%),var(--paper)}
+#home h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,10vw,5rem);line-height:.9;margin:0;color:var(--leaf);
+  text-shadow:0 4px 0 #1e7a32, 0 8px 18px rgba(30,122,50,.25);letter-spacing:.01em}
+#home h1 span{display:block;color:var(--pink);text-shadow:0 4px 0 #c22f72,0 8px 18px rgba(194,47,114,.25)}
+#home p{margin:0;font-size:1.05rem;color:var(--muted);max-width:32ch}
+.pick-label{font-family:var(--display);font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#chars{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:420px}
+#chars button{font-size:2rem;width:56px;height:56px;border-radius:18px;background:var(--card);box-shadow:0 3px 0 #e3dcf2;transition:transform .15s}
+#chars button canvas{width:44px;height:44px;display:block;margin:auto}
+#homeHero{width:110px;height:150px;margin-bottom:-14px;flex:none}
+#chars button[aria-pressed="true"]{background:var(--sun);box-shadow:0 3px 0 #d99a12;transform:scale(1.12) rotate(-4deg)}
+.home-actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.floaty{position:absolute;font-size:2.2rem;opacity:.55;animation:floaty 6s ease-in-out infinite;pointer-events:none}
+@keyframes floaty{50%{transform:translateY(-14px) rotate(8deg)}}
+
+/* LEVEL MAP + SHOP */
+#levels,#shop{background:var(--paper)}
+.bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--card);box-shadow:0 2px 0 #ece6f7;flex:none}
+.bar h2{font-family:var(--display);margin:0;font-size:1.5rem;flex:1;min-width:0}
+.icon-btn{font-size:1.35rem;width:44px;height:44px;border-radius:14px;background:#f1ecfd;display:grid;place-items:center;flex:none}
+.icon-btn:active{transform:scale(.92)}
+.star-total{font-family:var(--display);font-size:1.15rem;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.scroller{overflow-y:auto;flex:1;padding:16px;display:flex;flex-direction:column;gap:22px;-webkit-overflow-scrolling:touch}
+.world{border-radius:24px;padding:14px;max-width:760px;width:100%;margin-inline:auto}
+.world h3{font-family:var(--display);margin:0 0 10px;font-size:1.3rem;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.world h3 small{font-family:var(--body);font-size:.85rem;opacity:.75;font-weight:600}
+.lv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+
+.lv{position:relative;aspect-ratio:1;max-width:100%;border-radius:14px;background:rgba(255,255,255,.9);font-size:1.25rem;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;box-shadow:0 3px 0 rgba(0,0,0,.15);color:var(--ink)}
+.lv .st{font-size:.62rem;letter-spacing:-1px;margin-top:3px;color:#e6a400}
+.lv .badge{position:absolute;top:-6px;right:-6px;font-size:.95rem}
+.lv[disabled]{opacity:.45;cursor:default;box-shadow:none}
+.lv.current{outline:3px solid var(--ink);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:.9rem;color:var(--muted);max-width:760px;margin-inline:auto}
+.shop-wrap{max-width:760px;width:100%;margin-inline:auto;display:flex;flex-direction:column;gap:18px}
+.shop-hero{display:flex;align-items:center;gap:16px;background:var(--card);border-radius:24px;padding:12px 18px;box-shadow:0 3px 0 #ece6f7}
+.shop-hero canvas{width:110px;height:150px;flex:none}
+.shop-hero p{margin:0;font-size:1.05rem;line-height:1.45;min-width:0}
+.shop-wrap h3{font-family:var(--display);font-size:1.35rem;margin:0}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.item{background:var(--card);border-radius:20px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:0 3px 0 #e3dcf2}
+.item .e{font-size:2.4rem;line-height:1.1}
+.item .n{font-family:var(--display);font-weight:800;font-size:1.05rem}
+.item .d{font-size:.82rem;color:var(--muted);line-height:1.3;text-align:center}
+.sub{margin:-10px 0 0;color:var(--muted)}
+.bag-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+.bag-grid .item[disabled]{opacity:.4;cursor:default}
+#gBag{position:relative}
+#gBag b{position:absolute;top:-4px;right:-4px;background:var(--pink);color:#fff;font-size:.7rem;border-radius:999px;padding:0 5px;line-height:1.4}
+.item .p{font-family:var(--display);font-size:.95rem;background:#f1ecfd;border-radius:999px;padding:1px 10px}
+.item.wearing{background:#fff3c4;box-shadow:0 3px 0 #d99a12}
+.item.cant .p{color:var(--muted)}
+.item.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+/* GAME */
+#game{background:#cdeccf}
+#hud{display:flex;align-items:center;gap:6px;padding:8px 12px;flex:none;flex-wrap:wrap;background:rgba(255,255,255,.9);box-shadow:0 2px 0 rgba(0,0,0,.06)}
+#hud .title{font-family:var(--display);font-weight:800;font-size:1.1rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hud .title small{font-family:var(--body);font-weight:600;color:var(--muted);font-size:.85rem}
+.chip{font-family:var(--display);font-weight:800;font-size:1rem;background:#f1ecfd;border-radius:999px;padding:3px 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip.hurry{background:var(--danger);color:#fff;animation:pulse .6s ease-in-out infinite}
+#keychips{display:inline-flex;gap:3px;vertical-align:middle}
+#keychips i{width:14px;height:14px;border-radius:50%;display:inline-block;border:2px solid rgba(0,0,0,.2)}
+@media (max-width:560px){#hMoves{display:none}#hud .title small{display:none}}
+#board{flex:1;position:relative;min-height:0;touch-action:none}
+#cv{display:none}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+#dpad{flex:none;display:none;justify-content:center;padding:8px 16px 12px}
+#dpad .pad{display:grid;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(2,54px);gap:6px}
+#dpad button{background:rgba(255,255,255,.9);border-radius:16px;font-size:1.6rem;box-shadow:0 4px 0 rgba(0,0,0,.18)}
+#jumpBtn{align-self:center;margin-left:14px;width:84px;height:84px;border-radius:50%;background:var(--sun)!important;font-size:1.9rem;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+#jumpBtn small{font-size:.8rem}
+#dpad button:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.18)}
+@media (pointer:coarse){#dpad{display:flex}}
+#dpad.jump-only{display:flex}
+@media (pointer:fine){#dpad.jump-only .pad{display:none}}
+#toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:#fff;font-family:var(--display);font-size:1.1rem;padding:8px 18px;border-radius:999px;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;pointer-events:none;transition:opacity .25s;opacity:0}
+#toast.show{opacity:1}
+#mapToggle{position:absolute;right:12px;bottom:12px;z-index:3;width:62px;height:62px;border-radius:20px;background:rgba(255,255,255,.92);font-size:1.5rem;box-shadow:0 4px 0 rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+#mapToggle small{font-size:.75rem;font-weight:800}
+#mapToggle:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.18)}
+#mapView{position:absolute;inset:0;z-index:4;background:rgba(30,20,60,.78);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;cursor:pointer}
+#mapView canvas{border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.35);max-width:100%;max-height:calc(100% - 40px)}
+#mapView p{margin:0;color:#fff;font-family:var(--display);font-size:1rem;text-align:center}
+#flash{position:absolute;inset:0;background:var(--danger);opacity:0;pointer-events:none;transition:opacity .35s}
+
+/* MODALS */
+.modal{position:fixed;inset:0;background:rgba(30,20,60,.55);display:grid;place-items:center;padding:16px;z-index:10}
+.card{background:var(--card);border-radius:28px;padding:24px 22px;max-width:390px;width:100%;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.12);animation:pop .35s cubic-bezier(.3,1.6,.6,1);max-height:100%;overflow-y:auto}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+.card h2{font-family:var(--display);font-size:2rem;margin:0 0 6px;line-height:1.1}
+.card p{margin:6px 0;font-size:1.05rem;line-height:1.45}
+.card .tip-icon{font-size:3.4rem;line-height:1.1}
+.card ul{list-style:none;padding:0;margin:8px 0;text-align:left;display:flex;flex-direction:column;gap:6px;font-size:1rem}
+.stars{font-size:3rem;letter-spacing:4px;margin:6px 0 8px}
+.stars span{display:inline-block;color:#e2dcef;transform:scale(.4);transition:transform .35s cubic-bezier(.3,1.8,.6,1),color .2s}
+.stars span.on{color:var(--sun);transform:scale(1);text-shadow:0 3px 0 #d99a12}
+.stars span.off{transform:scale(1)}
+.stat-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:8px 0 10px}
+.card .actions{display:flex;flex-direction:column;gap:12px;align-items:center;margin-top:14px}
+.card .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:20}
+@media (prefers-reduced-motion:reduce){.floaty,.lv.current,.chip.hurry{animation:none}.card{animation:none}}
+</style>
+
+<!-- HOME -->
+<section id="home" class="screen">
+  <div class="floaty" style="left:8%;top:12%">🌀</div>
+  <div class="floaty" style="right:10%;top:18%;animation-delay:-2s">🍭</div>
+  <div class="floaty" style="left:12%;bottom:14%;animation-delay:-4s">🦖</div>
+  <div class="floaty" style="right:8%;bottom:20%;animation-delay:-1s">🏆</div>
+  <canvas id="homeHero" aria-label="Your hero"></canvas>
+  <h1>Maze<span>Escape 3D!</span></h1>
+  <p>25 twisty mazes full of keys, spikes, swirls, sneaky critters and a hungry dino. Can you escape them all?</p>
+  <div class="pick-label">Pick your hero</div>
+  <div id="chars"></div>
+  <div class="home-actions">
+    <button class="big-btn" id="playBtn">▶ Play</button>
+    <button class="big-btn alt" id="mapBtn">🗺️ Levels</button>
+    <button class="big-btn pink" id="shopBtn">🛍️ Shop</button>
+  </div>
+</section>
+
+<!-- LEVEL MAP -->
+<section id="levels" class="screen" hidden>
+  <div class="bar">
+    <button class="icon-btn" id="lvBack" aria-label="Back to home">🏠</button>
+    <h2>Choose a level</h2>
+    <div class="star-total" id="starTotal">★ 0</div>
+  </div>
+  <div class="scroller" id="worlds"></div>
+</section>
+
+<!-- SHOP -->
+<section id="shop" class="screen" hidden>
+  <div class="bar">
+    <button class="icon-btn" id="shopBack" aria-label="Back to home">🏠</button>
+    <h2>Candy Shop</h2>
+    <div class="star-total" id="wallet">🍭 0</div>
+  </div>
+  <div class="scroller"><div class="shop-wrap">
+    <div class="shop-hero"><canvas id="shopHero" aria-label="Your hero wearing your shop items"></canvas>
+      <p>Spend the 🍭 candies you collect in the mazes. Tap something you own to wear it, tap again to take it off.</p></div>
+    <h3>Helpers for tricky mazes</h3><p class="sub">Buy them here, then tap 🎒 during a level to use one.</p><div class="shop-grid" id="helperGrid"></div>
+    <h3>Hats and glasses</h3><div class="shop-grid" id="hatGrid"></div>
+    <h3>Magic trails</h3><div class="shop-grid" id="trailGrid"></div>
+  </div></div>
+</section>
+
+<!-- GAME -->
+<section id="game" class="screen" hidden>
+  <div id="hud">
+    <button class="icon-btn" id="gBack" aria-label="Level map">🗺️</button>
+    <div class="title" id="hTitle">Level 1</div>
+    <span class="chip" id="hHearts">❤️❤️❤️</span>
+    <span class="chip" id="hTime" hidden>⏱️ 0:00</span>
+    <span class="chip" id="hCandy">🍭 0/0</span>
+    <span class="chip" id="hKeys" hidden>🔑 <span id="keychips"></span></span>
+    <span class="chip" id="hFx" hidden></span>
+    <span class="chip" id="hMoves">👣 0</span>
+    <button class="icon-btn" id="gBag" aria-label="Backpack">🎒</button>
+    <button class="icon-btn" id="gRestart" aria-label="Restart level">↻</button>
+    <button class="icon-btn" id="gSound" aria-label="Sound on or off">🔊</button>
+  </div>
+  <div id="board"><canvas id="cv"></canvas><div id="flash"></div><div id="toast"></div>
+    <button id="mapToggle" aria-label="Show the whole maze">👀<small>Map</small></button>
+    <div id="mapView" hidden><canvas id="mapCv" aria-label="Map of the whole maze"></canvas><p>You are the pulsing dot · ⭐ is the way out · tap to close</p></div></div>
+  <div id="dpad"><div class="pad">
+    <span></span><button data-d="0,-1" aria-label="Up">⬆️</button><span></span>
+    <button data-d="-1,0" aria-label="Left">⬅️</button><button data-d="0,1" aria-label="Down">⬇️</button><button data-d="1,0" aria-label="Right">➡️</button>
+  </div><button id="jumpBtn" aria-label="Jump" hidden>⤴<small>Jump</small></button></div>
+</section>
+
+<div class="modal" id="modal" hidden><div class="card" id="modalCard"></div></div>
+<canvas id="fx"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+// ---------- storage ----------
+const store={
+  get(k,d){try{const v=localStorage.getItem('mazeEscape.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem('mazeEscape.'+k,JSON.stringify(v))}catch(e){}}
+};
+
+// CORE START
+const THEMES=[
+ {name:'Green Garden',  icon:'🌿',bg:'#bfe5c2',floorA:'#f1faea',floorB:'#e4f4dc',wall:'#2f9e44',wallTop:'#5cc871',wallEdge:'#1d6e2f',baddie:'🐝',decor:'🌼',exit:'🚪',dark:false},
+ {name:'Candy Land',    icon:'🍭',bg:'#ffd0e6',floorA:'#fff3f9',floorB:'#ffe6f2',wall:'#e0458f',wallTop:'#ff86c0',wallEdge:'#a92a66',baddie:'👻',decor:'🧁',exit:'🚪',dark:false},
+ {name:'Ocean Deep',    icon:'🐠',bg:'#a9dcff',floorA:'#e9f7ff',floorB:'#d8f0ff',wall:'#1f6fc4',wallTop:'#4ea2f2',wallEdge:'#134a85',baddie:'🦀',decor:'🐚',exit:'🚪',dark:false},
+ {name:'Desert Dunes',  icon:'🌵',bg:'#ffd99a',floorA:'#fff5de',floorB:'#ffecc6',wall:'#c97a2b',wallTop:'#efa858',wallEdge:'#8f5419',baddie:'🦂',decor:'🌵',exit:'🚪',dark:false},
+ {name:'Snowy Peaks',   icon:'❄️',bg:'#cfe8fb',floorA:'#ffffff',floorB:'#eef7ff',wall:'#5f9fd3',wallTop:'#aad5f6',wallEdge:'#3f77a6',baddie:'⛄',decor:'❄️',exit:'🚪',dark:false},
+ {name:'Jungle Ruins',  icon:'🦜',bg:'#a9d69a',floorA:'#eadfbd',floorB:'#ded1aa',wall:'#4f7d3a',wallTop:'#78ad5a',wallEdge:'#33552a',baddie:'🐍',decor:'🌴',exit:'🚪',dark:false},
+ {name:'Lava Mountain', icon:'🌋',bg:'#2e1414',floorA:'#5c302b',floorB:'#512924',wall:'#d9480f',wallTop:'#ff8a3d',wallEdge:'#8c2905',baddie:'🔥',decor:'🌋',exit:'🚪',dark:true},
+ {name:'Spooky Castle', icon:'🏰',bg:'#231d3b',floorA:'#4a4068',floorB:'#41385d',wall:'#7a6fb0',wallTop:'#aa9fe0',wallEdge:'#4f4580',baddie:'👻',decor:'🦇',exit:'🚪',dark:true},
+ {name:'Outer Space',   icon:'🚀',bg:'#0b1030',floorA:'#1f2858',floorB:'#1a224d',wall:'#5a63d6',wallTop:'#8d96ff',wallEdge:'#363d99',baddie:'👽',decor:'⭐',exit:'🛸',dark:true},
+ {name:'Rainbow Kingdom',icon:'🌈',bg:'#fff0b8',floorA:'#fffdf3',floorB:'#fff5d6',wall:'rainbow',wallTop:'',wallEdge:'',baddie:'🐲',decor:'🌈',exit:'🚪',dark:false},
+];
+const KEY_COLORS=['#ffc21a','#2f9bf0','#ff4f9a'];
+const KEY_NAMES=['yellow','blue','pink'];
+const PORTAL_COLORS=['#9b5cff','#13c4a3','#ff7a1a','#ff4f9a'];
+const ITEMS={
+  boots:{e:'⚡',say:'Zoom boots! Super fast for a bit!'},
+  shield:{e:'🛡️',say:'Shield! Nothing can hurt you for a bit!'},
+  heart:{e:'❤️',say:'Extra heart!'},
+  compass:{e:'🧭',say:'Compass! Follow the gold dots!'},
+  freeze:{e:'❄️',say:'Freeze! Critters, spikes and dinos are frozen!'},
+  hammer:{e:'🔨',say:'Hammer! Smash the cracked walls!'},
+  clock:{e:'⏱️',say:'+20 seconds!'},
+};
+const SPIKE_PERIOD=2200;
+const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+const kk=(x,y)=>x+','+y;
+// 25 levels: 1–5 are the hand-drawn ones, 6–25 are generated and climb a difficulty scale from 6 to 90
+const LAST_LEVEL=25;
+const diff=n=>n<=5?n:Math.round(6+(n-6)*84/19);
+const TIMED=new Set([12,14,18,21,24]),NIGHT=new Set([11,16,19,22,23,25]);
+const isBoss=n=>n>=10&&n%5===0, isTimed=n=>TIMED.has(n), isNight=n=>NIGHT.has(n);
+const WORLDS=[{name:'Hand-Drawn Adventures',icon:'✏️',t:0},{t:1},{t:5},{t:6},{t:9}];
+
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function themeFor(n){return THEMES[WORLDS[Math.min(4,Math.floor((n-1)/5))].t]}
+function blank(n,W,H){return{n,d:n,W,H,g:[],start:null,exit:null,candies:new Set(),keys:[],doors:new Map(),portals:new Map(),portalList:[],
+  ghosts:[],arrows:[],spikes:[],items:[],chasers:[],water:new Set(),mystery:new Set(),conv:new Map(),pads:new Map(),gates:[],movers:[],boost:new Map(),buttons:[],boats:[],flags:[],revealed:new Set(),fog:0,par:0,timeLimit:0,timed:false,theme:themeFor(n),exitIcon:themeFor(n).exit,name:''}}
+// 's' hidden room wall (opens after the button sequence), '.' floor, 'z' secret door (looks like a wall, slides open), 'l' fake low wall to jump, '#' wall, 'x' cracked wall (a wall until smashed with the hammer), 'i' invisible wall, 'v' open sky (written '_' in the hand-drawn maps)
+function isFloor(L,x,y){if(x<0||y<0||x>=L.W||y>=L.H)return false;const v=L.g[y][x];return v==='.'||v==='z'}
+function floorCount(L,x,y){let c=0;for(const[dx,dy]of DIRS)if(isFloor(L,x+dx,y+dy))c++;return c}
+const gateClosed=(gt,now)=>((now/2600+gt.phase)%1)<.45, gateWarn=(gt,now)=>((now/2600+gt.phase)%1)>.85;
+function spikeState(sp,now){if(sp.always)return'up';const f=((now/SPIKE_PERIOD+sp.phase)%1+1)%1;return f<.42?'up':f>.8?'warn':'down'}
+function nbrs(L,x,y,locked){
+  const out=[],open=(a,b)=>{if(!isFloor(L,a,b))return false;const k=kk(a,b);return!(L.doors.has(k)&&locked(L.doors.get(k)))};
+  for(const[dx,dy]of DIRS){let nx=x+dx,ny=y+dy;if(!open(nx,ny))continue;
+    // where you really end up: swirls teleport, belts carry, bounce pads launch
+    for(let guard=0;guard<60;guard++){const p=L.portals.get(kk(nx,ny));if(p){nx=p.x;ny=p.y}
+      const k=kk(nx,ny),b=L.conv&&L.conv.get(k),j=L.pads&&L.pads.get(k);
+      if(b&&open(nx+b[0],ny+b[1])){nx+=b[0];ny+=b[1];continue}
+      if(j&&open(nx+j.d[0]*j.n,ny+j.d[1]*j.n)){nx+=j.d[0]*j.n;ny+=j.d[1]*j.n;continue}
+      const bo=L.boost&&L.boost.get(k);
+      if(bo&&open(nx+bo[0],ny+bo[1])){while(open(nx+bo[0],ny+bo[1])){nx+=bo[0];ny+=bo[1];const k2=kk(nx,ny);if(L.portals.has(k2)||L.conv.has(k2)||L.pads.has(k2))break}continue}
+      break}
+    out.push([nx,ny])}
+  if(L.canJump)for(const[dx,dy]of DIRS)if((open(x+dx,y+dy)||(L.g[y+dy]&&L.g[y+dy][x+dx]==='l'))&&open(x+2*dx,y+2*dy)){
+    const p=L.portals.get(kk(x+2*dx,y+2*dy));out.push(p?[p.x,p.y]:[x+2*dx,y+2*dy])}
+  return out}
+function bfs(L,sx,sy,locked){
+  const dist=new Map([[kk(sx,sy),0]]),prev=new Map(),q=[[sx,sy]];
+  for(let i=0;i<q.length;i++){const[x,y]=q[i],d=dist.get(kk(x,y));
+    for(const[nx,ny]of nbrs(L,x,y,locked)){const k=kk(nx,ny);if(!dist.has(k)){dist.set(k,d+1);prev.set(k,kk(x,y));q.push([nx,ny])}}}
+  return{dist,prev}}
+const OPEN=()=>false;
+const CONV={'→':[1,0],'←':[-1,0],'↑':[0,-1],'↓':[0,1]};
+const BOOST={'⇒':[1,0],'⇐':[-1,0],'⇑':[0,-1],'⇓':[0,1]},BUTTONS=['①','②','③','④'];
+function patrolRun(x,y,ok){
+  const runs=[[1,0],[0,1]].map(([dx,dy])=>{let a=0,b=0;while(a<4&&ok(x-(a+1)*dx,y-(a+1)*dy))a++;while(b<4&&ok(x+(b+1)*dx,y+(b+1)*dy))b++;
+    const p=[];for(let s=-a;s<=b;s++)p.push({x:x+s*dx,y:y+s*dy});return p});
+  return runs[0].length>=runs[1].length?runs[0]:runs[1]}
+
+// Level 1 is the first drawing: a garden field, the swirl stream (now with spike traps), and the hedge maze with a bee.
+const LEVEL1=[
+ '#########################',
+ '#T..D...........#....#..#',
+ '####.###.####.C.#....#..#',
+ '#....#.#.#..#...#....#..#',
+ '#.##.#.#.#.##.C.#....#..#',
+ '#.#..#...#.##WWW#....#..#',
+ '#.#.####.#.##.C.#..#.#..#',
+ '#.#....#.#.##...#..#.#.S#',
+ '#.####.#.#.##.C.#..#.#..#',
+ '#..G...#...##WWW#..#.#..#',
+ '#####.###..##.C.#..#....#',
+ '#...#...#K.##...#..#....#',
+ '#.#.###.##.##.C.#.s#....#',
+ '#.#.....#...#.......#...#',
+ '#########################'];
+// Level 2 is the second drawing: follow the arrows past the rock pile to the big swirl, which zooms you out to the
+// outside paths. Critters guard the zigzag, spikes guard the tall right path, and the key waits at its top.
+const LEVEL2=[
+ '#####################',
+ '#C#################K#',
+ '#Q#################.#',
+ '#.##b.S.>.>.>.v..##.#',
+ '#.##.........C...##.#',
+ '#.##....##.....v.##.#',
+ '#.##..######.....##.#',
+ '#.#########.#..C.##.#',
+ '#.##..#####....v.##W#',
+ '#.##...........v.##.#',
+ '#W##..........v..##.#',
+ '#.##....P.<.<.<..##.#',
+ '#.##...#D#.......##.#',
+ '#.##...#T#.......##W#',
+ '#.##...###.......##.#',
+ '#.##............h##.#',
+ '#.#################.#',
+ '#....G.....C......#.#',
+ '#################.#.#',
+ '##.......C...G....#.#',
+ '##.################.#',
+ '##....G....C........#',
+ '#####################'];
+function parseMap(n,rows,name,exitIcon,theme){
+  const L=blank(n,rows[0].length,rows.length);L.hand=true;const movers=[];L.name=name;L.exitIcon=exitIcon;if(theme)L.theme=theme;const boats=[];
+  const AR={'>':[1,0],'<':[-1,0],'v':[0,1],'^':[0,-1]},IT={b:'boots',s:'shield',h:'heart',c:'compass',f:'freeze',m:'hammer'},pts={},seeds=[];
+  L.g=rows.map((row,y)=>[...row].map((c,x)=>{
+    if(c==='S')L.start={x,y};else if(c==='T')L.exit={x,y};else if(c==='C')L.candies.add(kk(x,y));
+    else if(c==='K')L.keys.push({x,y,c:0});else if(c==='D')L.doors.set(kk(x,y),0);
+    else if(c==='P'||c==='Q')pts[c]={x,y};else if(AR[c])L.arrows.push({x,y,d:AR[c]});
+    else if(c==='W')L.spikes.push({x,y,phase:(y*.37)%1});else if(c==='A')L.spikes.push({x,y,phase:0,always:true});else if(c==='G')seeds.push({x,y});
+    else if(IT[c])L.items.push({x,y,t:IT[c]});else if(c==='X')return'x';else if(c==='E'||c==='N')return'#';
+    else if(c==='Z')return'z';else if(c==='L')return'l';
+    else if(c==='O')L.gates.push({x,y,phase:(x*.17+y*.29)%1});else if(c==='M')movers.push({x,y});
+    else if('pq1234'.includes(c))pts[c]={x,y};else if(c==='i')return'i';else if(c==='_')return'v';else if(c==='J')return'.';
+    else if(c==='~'||c==='B'){L.water.add(kk(x,y));if(c==='B')boats.push({x,y})}
+    else if(c===',')L.mystery.add(kk(x,y));else if(c==='F')L.flags.push({x,y});
+    else if(CONV[c])L.conv.set(kk(x,y),CONV[c]);
+    else if(BOOST[c])L.boost.set(kk(x,y),BOOST[c]);else if(BUTTONS.includes(c))L.buttons.push({x,y,n:BUTTONS.indexOf(c)+1});else if(c==='Ω')return's';
+    return c==='#'?'#':'.'}));
+  [['P','Q',0],['p','q',1],['1','2',2],['3','4',3]].forEach(([a,b,c])=>{const A=pts[a],B=pts[b];if(!A||!B)return;
+    L.portals.set(kk(A.x,A.y),B);L.portals.set(kk(B.x,B.y),A);L.portalList.push({...A,c},{...B,c})});
+  // moving walls slide up and down their whole column of floor
+  movers.forEach((m,i)=>{let a=m.y,z=m.y;while(isFloor(L,m.x,a-1))a--;while(isFloor(L,m.x,z+1))z++;
+    const track=[];for(let y=a;y<=z;y++)track.push(y);L.movers.push({x:m.x,track,i:m.y-a,dir:1,y:m.y,ay:m.y,next:0,off:i*320})});
+  // boats sail the whole stretch of water in their row
+  boats.forEach((b,i)=>{let a=b.x,z=b.x;while(L.water.has(kk(a-1,b.y)))a--;while(L.water.has(kk(z+1,b.y)))z++;
+    const path=[];for(let x=a;x<=z;x++)path.push({x,y:b.y});
+    L.boats.push({path,i:b.x-a,dir:i%2?-1:1,x:b.x,y:b.y,tick:i%2?190:250})});
+  const ok=(x,y)=>isFloor(L,x,y)&&!L.doors.has(kk(x,y))&&!L.portals.has(kk(x,y));
+  seeds.forEach((s,i)=>{const run=patrolRun(s.x,s.y,ok),idx=run.findIndex(p=>p.x===s.x&&p.y===s.y);
+    L.ghosts.push({path:run,i:idx,dir:1,x:s.x,y:s.y,nap:0,phase:(i*.31)%1})});
+  finish(L);return L}
+// Level 3 is the orange drawing: start on the dock, cross the spike bridge (or take the swirl past it), wind through
+// the rings, find the hidden path through the mystery room's invisible walls, then dodge the boats on the river.
+const LEVEL3=[
+ '#################################',
+ '#################################',
+ '#########.sW.WCW.W.WCW.WCW.W.####',
+ '#########.##################.####',
+ '########Q.#################....##',
+ '#########.#################.....#',
+ '#.........................#.....#',
+ '#.#######################C#P<<..#',
+ '#.#.................,,,,#.#...S.#',
+ '#.#.################iii,#.#.....#',
+ '#.#.#..W.W.WCW.W.W.#i,,,#.##...##',
+ '#.#.#.############.#,,ii#.#######',
+ '#.#.#..F.........#.#,i,,#.#######',
+ '#.#.#.#~~B~~~~~~~#.D,i,i#.#######',
+ '#...#.#~~~~~~~B~~#.#ii,i#.#######',
+ '#.#.#.#.....T...C#.#,,,i#.#######',
+ '#.#.#q############.#,Cii#.#######',
+ '#.#.#..W.W.W.W.W.Wp#,,,,#.#######',
+ '#.#.################ii,i#.#######',
+ '#.#.................,,,,#.#######',
+ '#C#######################.#######',
+ '#.............h..........K#######',
+ '#################################',
+ '#################################'];
+const ORANGE_BAY={name:'Orange Bay',icon:'⛵',bg:'#ffd9b8',floorA:'#fff6ea',floorB:'#ffeddb',wall:'#f26b1d',wallTop:'#ff9a52',wallEdge:'#b2470b',baddie:'🐝',decor:'🐚',exit:'💎',dark:false};
+function level3(){const L=parseMap(3,LEVEL3,'Orange Bay','💎',ORANGE_BAY);return L}
+// Level 4 is the fourth drawing: its arrows became conveyor belts. Ride the stairs up to the top circle, slide down
+// through the mini maze, then take the loop past the teeth on the right wall to grab the key.
+const LEVEL4=[
+ '###################################',
+ '#S###############################T#',
+ '#.#.......C.........h............D#',
+ '#.#.############################..#',
+ '#.#C....#######P################..#',
+ '#.#####.#####→→..WC#############..#',
+ '#.##Q...####→↑#↓################..#',
+ '#.#########→↑##↓################..#',
+ '#.########→↑###↓####.←←←←←←←####..#',
+ '#.#######→↑####.####.######.####..#',
+ '#.######→↑####C..#...######W####WW#',
+ '#.###..→↑######.##.########..K##..#',
+ '#....#.#######..C..########W####..#',
+ '#.##.#.#######.##.#########.C###..#',
+ '#.##.C.#######...#c####→→→→.####..#',
+ '#.##############↓#####→↑########..#',
+ '#.##############↓####→↑#########..#',
+ '#G##############↓###→↑##########WW#',
+ '#.##############↓##→↑###########..#',
+ '#.##############↓#→↑############..#',
+ '#.##############.→↑#############.s#',
+ '#.##############.###############..#',
+ '#.##############.###############..#',
+ '#.......G...............G....C....#',
+ '###################################'];
+const CANYON={name:'Conveyor Canyon',icon:'🛝',bg:'#f2c29b',floorA:'#fff3e3',floorB:'#ffe8cf',wall:'#c2562b',wallTop:'#e8804f',wallEdge:'#86351a',baddie:'🐞',decor:'🌵',exit:'🏁',dark:false};
+function level4(){const L=parseMap(4,LEVEL4,'Conveyor Canyon','🏁',CANYON);L.spikes.push({x:24,y:8,phase:.5});return L}
+// Level 5 is the bouncy drawing, floating in the sky: two bounces over the hills, a fall, bouncy waves, one giant
+// bounce, a snake box, the spike run (1, 2, 1, 2, 2, 2), then portal after portal down to the finish. 500 seconds!
+const LEVEL5=[
+ '_#_#_____________________________________________________',
+ '_#S#______________________________________###############',
+ '_#.#_________________________########_____#Q..#..G......#',
+ '_#C#_________________________#.C....#_____###.#.#######.#',
+ '_#.#_____##__________________#.####↓#_____#...#.#.....#.#',
+ '_#.#__##_##__________________#....#↓#_____#.###.#.###.#.#',
+ '_#...J##J##._________________####.#↓#_____#.....#...#...#',
+ '_#_#_______↓_________________#..C.#↓#_____#######.#.#####',
+ '___________↓_________________#.####↓#_____#p......#..C..#',
+ '___________↓_________________#....#↓#_____###############',
+ '___________↓_________________####.#↓#____________________',
+ '___________↓_#_#_#___________#....#.W.W.WW.W.WW..WW..WW.P',
+ '___________CJ#J#J#.J_________#.######____________________',
+ '_____________________________########_________#######____',
+ '______________________________________________#q....#____',
+ '______________________________________________#####.#____',
+ '______________________________________________#1#...#____',
+ '______________________________________________#....C#____',
+ '______________________________________________#######____',
+ '_________________________________________________________',
+ '______________________________________________#######____',
+ '______________________________________________#2.W..#____',
+ '______________________________________________#####.#____',
+ '______________________________________________#3W...#____',
+ '______________________________________________#######____',
+ '_________________________________________________________',
+ '________________________________________________.4.______',
+ '________________________________________________...______',
+ '_________________________________________________↓_______',
+ '_________________________________________________↓_______',
+ '______________________________________________#.....#____',
+ '______________________________________________#C.T.C#____',
+ '______________________________________________#######____'];
+const SKY={name:'Bouncy Sky',icon:'☁️',bg:'#bfe6ff',floorA:'#fff6ea',floorB:'#ffeddb',wall:'#f26b1d',wallTop:'#ff9a52',wallEdge:'#b2470b',baddie:'🐝',decor:'🌼',exit:'🏆',dark:false,sky:true};
+function level5(){const L=parseMap(5,LEVEL5,'Bouncy Sky','🏆',SKY);
+  [[5,6,3],[8,6,3],[12,12,2],[14,12,2],[16,12,2],[19,12,11]].forEach(([x,y,n])=>L.pads.set(kk(x,y),{d:[1,0],n}));
+  // each group of spikes in the run pops together; neighbouring groups take turns
+  let grp=-1,prev=-9;for(const sp of L.spikes.filter(s=>s.y===11).sort((a,b)=>a.x-b.x)){if(sp.x!==prev+1)grp++;sp.phase=(grp%2)*.5;prev=sp.x}
+  L.timeLimit=500;finish(L);L.timeLimit=500;return L}
+// Level 8 is the pencil drawing: the walls are electric (touch one and you zap back to the start) and the blue
+// spikes never go down, so you have to jump over them.
+const LEVEL8=[
+ '#####################',
+ '#......#............#',
+ '#.####.##.###.###...#',
+ '#.#C.#.##.###A###.C.#',
+ '#.#.##.##A###.###...#',
+ '#...##.##.###.###...#',
+ '######.##.###A###AAA#',
+ '#.......#.###.###...#',
+ '#.S######A###.###...#',
+ '#.##...##.###A###...#',
+ '#A##.#.##.###.###...#',
+ '#.##.#C##.###.###AAA#',
+ '#A##.###...A...C#...#',
+ '#.....A..########h..#',
+ '#################...#',
+ '#...............#...#',
+ '#.###..########.#AAA#',
+ '#.#K.A.#......#.#...#',
+ '#.###..#.T.A..D.#...#',
+ '#......#......#.#...#',
+ '#......#....C.#.#AAA#',
+ '#......########.#...#',
+ '#...............#...#',
+ '############.####...#',
+ '#.C..#..C.A.........#',
+ '#.........A.........#',
+ '#####################'];
+const ZAP={name:'Zap Fortress',icon:'⚡',bg:'#d9e1f2',floorA:'#f8faff',floorB:'#edf1fb',wall:'#5b6378',wallTop:'#8f98b2',wallEdge:'#353b4d',baddie:'🐝',decor:'⚡',exit:'🏆',dark:false,zap:true};
+function level8(){const L=parseMap(8,LEVEL8,'Zap Fortress','🏆',ZAP);L.zap=true;L.canJump=true;return L}
+// Level 6 is the tall tiger: walk off the slanted ledges, then fall FAST past its eyes, nose, whiskers and the
+// striped rows of spikes. Steer left and right to dodge. Spikes send you back up; the tail is the way out.
+const LEVEL6=[
+ '################',
+ '#...........####',
+ '#S...C......####',
+ '##########..####',
+ '#...........####',
+ '#...........####',
+ '#......C....####',
+ '#..#############',
+ '#...........####',
+ '#...........####',
+ '#...C.......####',
+ '##########..####',
+ '#...........####',
+ '#...........####',
+ '#.......C...####',
+ '#..#############',
+ '#...........####',
+ '#A........A.####',
+ '#.EEE..EEE.A####',
+ '#.EEE..EEE..####',
+ '#.EEE..EEE..####',
+ '#....C......####',
+ '#...........####',
+ '#....NN...A.####',
+ '#.AA.NN..A..####',
+ '#...........####',
+ '#...........####',
+ '#........F..####',
+ '##########..####',
+ '#...........####',
+ '#...........####',
+ '#...........####',
+ '#...........####',
+ '#...........####',
+ '#AAAAAAA...A####',
+ '#...........####',
+ '#...........####',
+ '#........C..####',
+ '#...........####',
+ '#...........####',
+ '#AAAAA...AAA####',
+ '#...........####',
+ '#...........####',
+ '#......C....####',
+ '#...........####',
+ '#...........####',
+ '#AAAAAAA...A####',
+ '#...........####',
+ '#...........####',
+ '#........C..####',
+ '#......F....####',
+ '#####..#########',
+ '#...........####',
+ '#...........####',
+ '#...........####',
+ '#...........####',
+ '#...........####',
+ '#AAA...AAAAA####',
+ '#...........####',
+ '#...........####',
+ '#....C......####',
+ '#...........####',
+ '#...........####',
+ '#AAAAA...AAA####',
+ '#...........####',
+ '#...........####',
+ '#......C....####',
+ '#...........####',
+ '#...........####',
+ '#AAA...AAAAA####',
+ '#...........####',
+ '#....C......####',
+ '#.............T#',
+ '################',
+ '################'];
+const TIGER={name:'Tiger Tower',icon:'🐯',bg:'#ffe2b8',floorA:'#fffaf0',floorB:'#fff2dc',wall:'#f08a24',wallTop:'#ffb35c',wallEdge:'#a4520b',baddie:'🐝',decor:'🐾',exit:'🏁',dark:false};
+function level6(){const L=parseMap(6,LEVEL6,'Tiger Tower','🏁',TIGER);L.fall=true;
+  L.eyes=[{x:3.5,y:19.5},{x:8.5,y:19.5}];L.nose={x:5,y:23};return L}
+// Level 7 is the two orange towers: find two secret doors in the first maze to reach the portal, then get past
+// doors that close in and walls that move up and down, jump the fake wall and portal to the little finish box.
+const LEVEL7=[
+ '####################################',
+ '####################################',
+ '##...T.#############################',
+ '##4...C#############################',
+ '####################################',
+ '####################################',
+ '####################################',
+ '##.C.........S####QF..............##',
+ '###########Z#####################.##',
+ '##..........C.######......O.......##',
+ '###.################.###############',
+ '###.Z.........######....O.......####',
+ '###.#########.#################.####',
+ '###.#....C..#.######.......O..C.####',
+ '###.#.#####.#.######.###############',
+ '###.#.#..P#.#.######.C.O........####',
+ '###.#.#.###.#.#################.####',
+ '###.#.#.....#.######........O...####',
+ '###.#.#######.######.###############',
+ '###.#.........######............####',
+ '###.###########################.####',
+ '###..........C#########M##M##M#.####',
+ '#############.#########.##.##.#F####',
+ '###...........#########.##.##.#.####',
+ '###.###############3L......C....####',
+ '###.h.........#########.##.##.######',
+ '#############.#########.##.##.######',
+ '###..........C#########.##.##.######',
+ '####################################',
+ '####################################',
+ '####################################'];
+const TOWERS={name:'Secret Towers',icon:'🗝️',bg:'#ffe4cc',floorA:'#fff8ef',floorB:'#ffefdd',wall:'#f2731d',wallTop:'#ff9d57',wallEdge:'#a9480a',baddie:'🐝',decor:'',exit:'🏆',dark:false};
+function level7(){const L=parseMap(7,LEVEL7,'Secret Towers','🏆',TOWERS);L.canJump=true;return L}
+// Level 9 is the notebook drawing: speed boosts zoom you along the top, the striped tower takes you down, and in
+// the hook you press three buttons in order to open a secret room whose portal leads to the ring and the finish.
+const LEVEL9=[
+ '##################################',
+ '#.⇒....C...⇒...C..⇒...C..⇒...C...#',
+ '#.##########################.....#',
+ '#..W.W.W.....###############....⇓#',
+ '####.#####.#.###################.#',
+ '#....#.....#.###############.....#',
+ '#.####.###.#.###############⇓....#',
+ '#.#....#...#.###############.#####',
+ '#.#.####.###.###############..W..#',
+ '#.#......#...###############....⇓#',
+ '#.######.#.#####################.#',
+ '#......#.#...###############.C...#',
+ '######.#.###.###①#########②#⇓....#',
+ '#C.....#.....###.#########.#.#####',
+ '#.#########..###.#...③...#.#..W..#',
+ '#..........#.###.#.##Ω##.#.#....⇓#',
+ '#S.#######...###.#.#...#.#.#####.#',
+ '################C#.#.P.#h#.#.....#',
+ '################.#.#C.C#.#.......#',
+ '################.#.#####.#.#######',
+ '################.#.......#.#######',
+ '################.####.####.#######',
+ '################...........#######',
+ '##################################',
+ '#########....Q.C..################',
+ '#########.#######.################',
+ '#########.#######W################',
+ '#########W#######.################',
+ '#########.#######.→→↓#############',
+ '#########.#######.##↓#############',
+ '#########..C.W....##↓#############',
+ '###################.....##########',
+ '###################..T..##########',
+ '##################################'];
+const NOTEBOOK={name:'Notebook Doodle',icon:'✏️',bg:'#f4f6fb',floorA:'#ffffff',floorB:'#eef2fb',wall:'#2a2a33',wallTop:'#55556a',wallEdge:'#101016',baddie:'🐝',decor:'',exit:'🏁',dark:false};
+function level9(){return parseMap(9,LEVEL9,'Notebook Doodle','🏁',NOTEBOOK)}
+function level1(){return parseMap(1,LEVEL1,'Hand-Drawn Garden','🏆')}
+function level2(){return parseMap(2,LEVEL2,'Swirl Valley','🎁')}
+
+function genLevel(n){
+  const R=mulberry(n*7919+13),pick=a=>a[Math.floor(R()*a.length)];
+  const d=diff(n);
+  const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+  const cw=Math.min(20,5+Math.floor(d/4)),ch=Math.min(14,4+Math.floor(d/6));
+  const W=cw*2+1,H=ch*2+1,L=blank(n,W,H);L.d=d;
+  const g=[];for(let y=0;y<H;y++)g.push(new Array(W).fill('#'));L.g=g;
+  // carve with a recursive backtracker (long winding corridors)
+  const seen=new Set([kk(0,ch-1)]),st=[[0,ch-1]];g[(ch-1)*2+1][1]='.';
+  while(st.length){const[cx,cy]=st[st.length-1];
+    const opts=DIRS.filter(([dx,dy])=>{const nx=cx+dx,ny=cy+dy;return nx>=0&&ny>=0&&nx<cw&&ny<ch&&!seen.has(kk(nx,ny))});
+    if(!opts.length){st.pop();continue}
+    const[dx,dy]=pick(opts),nx=cx+dx,ny=cy+dy;g[cy*2+1+dy][cx*2+1+dx]='.';g[ny*2+1][nx*2+1]='.';seen.add(kk(nx,ny));st.push([nx,ny])}
+  // a few loops early on; later mazes are almost pure, so lots of dead ends
+  const braid=d<8?0.2:d<25?0.08:0.02;
+  for(let y=1;y<H;y+=2)for(let x=1;x<W;x+=2){
+    if(floorCount(L,x,y)===1&&R()<braid){
+      const opts=DIRS.filter(([dx,dy])=>{const wx=x+dx,wy=y+dy;return wx>0&&wy>0&&wx<W-1&&wy<H-1&&g[wy][wx]==='#'});
+      if(opts.length){const[dx,dy]=pick(opts);g[y+dy][x+dx]='.'}}}
+  L.start={x:1,y:(ch-1)*2+1};
+  const occ=new Set([kk(L.start.x,L.start.y)]);
+  const free=(x,y)=>isFloor(L,x,y)&&!occ.has(kk(x,y));
+  let d0=bfs(L,L.start.x,L.start.y,OPEN).dist,far=null,fd=-1;
+  for(const[k,d]of d0){const[x,y]=k.split(',').map(Number);if(x%2&&y%2&&d>fd){fd=d;far={x,y}}}
+  L.exit=far;occ.add(kk(far.x,far.y));
+  const cells=[];for(let y=1;y<H;y+=2)for(let x=1;x<W;x+=2)cells.push([x,y]);
+  const near=(x,y,p,r)=>Math.abs(x-p.x)+Math.abs(y-p.y)<=r;
+  // swirl portals (the spirals from the drawings)
+  if(d>=8){const pairs=d<35?1:2;
+    for(let p=0;p<pairs;p++){for(let t=0;t<300;t++){const[ax,ay]=pick(cells),[bx,by]=pick(cells);
+      if(!free(ax,ay)||!free(bx,by)||near(ax,ay,L.start,3)||near(bx,by,L.start,3))continue;
+      if(Math.abs(ax-bx)+Math.abs(ay-by)<(W+H)/3)continue;
+      L.portals.set(kk(ax,ay),{x:bx,y:by});L.portals.set(kk(bx,by),{x:ax,y:ay});
+      L.portalList.push({x:ax,y:ay,c:p},{x:bx,y:by,c:p});occ.add(kk(ax,ay));occ.add(kk(bx,by));break}}}
+  // locked doors on the way out, each with its key hidden somewhere reachable before it
+  const nk=d<20?1:d<45?2:3;let placed=0;
+  const r0=bfs(L,L.start.x,L.start.y,OPEN),path=[];let cur=kk(L.exit.x,L.exit.y);
+  while(cur){path.unshift(cur);cur=r0.prev.get(cur)}
+  const onPath=new Set(path);
+  for(let i=0;i<nk;i++){const target=Math.floor(path.length*(i+1)/(nk+1));
+    for(let d=0;d<path.length;d++){let done=false;
+      for(const idx of[target+d,target-d]){if(idx<3||idx>path.length-3)continue;const[x,y]=path[idx].split(',').map(Number);
+        if(!free(x,y)||floorCount(L,x,y)!==2)continue;if([...L.doors.keys()].some(k=>{const[a,b]=k.split(',').map(Number);return Math.abs(a-x)+Math.abs(b-y)<4}))continue;
+        L.doors.set(kk(x,y),placed);occ.add(kk(x,y));placed++;done=true;break}
+      if(done)break}}
+  for(let i=0;i<placed;i++){const rr=bfs(L,L.start.x,L.start.y,c=>c>=i);const cand=[];
+    for(const[k,d]of rr.dist){const[x,y]=k.split(',').map(Number);if(!free(x,y))continue;
+      cand.push({x,y,s:d+(floorCount(L,x,y)===1?12:0)-(onPath.has(k)?20:0)+R()*6})}
+    if(!cand.length)continue;
+    cand.sort((a,b)=>b.s-a.s);const c=cand[Math.floor(R()*Math.min(3,cand.length))];
+    L.keys.push({x:c.x,y:c.y,c:i});occ.add(kk(c.x,c.y))}
+  // cracked walls: secret shortcuts for whoever finds the hammer (never a way around a locked door)
+  if(d>=10){const want=2+Math.floor(d/20),reach=i=>bfs(L,L.start.x,L.start.y,c=>c>=i).dist.size;
+    const base=[];for(let i=0;i<placed;i++)base.push(reach(i));
+    const cand=[];
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){if(g[y][x]!=='#')continue;
+      for(const[a,b]of[[[x-1,y],[x+1,y]],[[x,y-1],[x,y+1]]]){if(!isFloor(L,...a)||!isFloor(L,...b))continue;
+        const da=d0.get(kk(...a)),db=d0.get(kk(...b));if(da!=null&&db!=null&&Math.abs(da-db)>10)cand.push([x,y])}}
+    let made=0;
+    for(const[x,y]of shuffle(cand)){if(made>=want)break;g[y][x]='.';
+      const safe=base.every((b,i)=>reach(i)===b);g[y][x]=safe?'x':'#';if(safe)made++}
+    if(made){const rr=bfs(L,L.start.x,L.start.y,()=>true),spots=[];
+      for(const k of rr.dist.keys()){const[x,y]=k.split(',').map(Number);if(free(x,y)&&!near(x,y,L.start,2))spots.push([x,y])}
+      if(spots.length){const[x,y]=pick(spots);L.items.push({x,y,t:'hammer'});occ.add(kk(x,y))}}}
+  // swirly candies, mostly tucked into dead ends
+  const nc=3+Math.floor(d/10);const ends=[],rest=[];
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++)if(free(x,y))(floorCount(L,x,y)===1?ends:rest).push([x,y]);
+  shuffle(ends);shuffle(rest);
+  for(const[x,y]of[...ends,...rest]){if(L.candies.size>=nc)break;if(free(x,y)&&!near(x,y,L.start,1)){L.candies.add(kk(x,y));occ.add(kk(x,y))}}
+  // power-ups, also hidden in dead ends
+  L.timed=isTimed(n);
+  const kinds=['boots'];if(d>=5)kinds.push('heart','shield');if(d>=7)kinds.push('compass');if(d>=12)kinds.push('freeze');
+  const wantItems=Math.min(5,1+Math.floor(d/15))+(L.timed?2:0);let made=0;
+  for(const[x,y]of[...ends,...rest]){if(made>=wantItems)break;if(!free(x,y)||near(x,y,L.start,2))continue;
+    L.items.push({x,y,t:L.timed&&made<2?'clock':pick(kinds)});occ.add(kk(x,y));made++}
+  // spike traps right on the way out: wait for them to go down!
+  const ns=d<4?0:Math.min(14,1+Math.floor((d-4)/4));
+  const spikeCand=shuffle(path.filter((k,i)=>{const[x,y]=k.split(',').map(Number);return i>4&&i<path.length-2&&free(x,y)&&floorCount(L,x,y)===2}));
+  for(const k of spikeCand){if(L.spikes.length>=ns)break;const[x,y]=k.split(',').map(Number);
+    if(L.spikes.some(s=>near(x,y,s,2)))continue;L.spikes.push({x,y,phase:R()});occ.add(k)}
+  // patrolling critters that take naps
+  const ng=d<5?0:Math.min(8,1+Math.floor((d-5)/8));
+  const dS=bfs(L,L.start.x,L.start.y,OPEN).dist;
+  const walk=(x,y)=>{const k=kk(x,y);return isFloor(L,x,y)&&!L.doors.has(k)&&!L.portals.has(k)&&!(x===L.exit.x&&y===L.exit.y)&&(dS.get(k)??99)>5};
+  const used=new Set();
+  for(let gi=0;gi<ng;gi++)for(let t=0;t<200;t++){
+    const x=1+Math.floor(R()*(W-2)),y=1+Math.floor(R()*(H-2)),k=kk(x,y);
+    if(!walk(x,y)||used.has(k)||(dS.get(k)??0)<9)continue;
+    const run=patrolRun(x,y,walk);
+    if(run.length<3||run.some(p=>used.has(kk(p.x,p.y))))continue;
+    run.forEach(p=>used.add(kk(p.x,p.y)));
+    const i=Math.floor(R()*run.length);L.ghosts.push({path:run,i,dir:1,x:run[i].x,y:run[i].y,nap:0,phase:R()});break}
+  // the hungry dino: boss levels, then every level once the difficulty reaches 55
+  const nch=d>=55?(isBoss(n)&&d>=70?2:1):isBoss(n)?1:0;
+  if(nch){const rr=bfs(L,L.start.x,L.start.y,()=>true),spots=[];
+    for(const[k,d]of rr.dist){const[x,y]=k.split(',').map(Number);if(x%2&&y%2&&!occ.has(k)&&d>8)spots.push({x,y,d})}
+    spots.sort((a,b)=>b.d-a.d);
+    for(const s of spots){if(L.chasers.length>=nch)break;if(L.chasers.some(c=>near(s.x,s.y,{x:c.sx,y:c.sy},6)))continue;L.chasers.push({sx:s.x,sy:s.y})}}
+  if(isNight(n))L.fog=d<60?4.6:3.6;
+  L.name=themeFor(n).name;
+  finish(L);return L}
+
+function finish(L){
+  // goal steps: start → each key → exit, with a little wiggle room, plus a detour per candy
+  let pos=L.start,sum=0;
+  for(const k of[...L.keys].sort((a,b)=>a.c-b.c).concat([L.exit])){sum+=bfs(L,pos.x,pos.y,OPEN).dist.get(kk(k.x,k.y))||0;pos=k}
+  L.par=Math.ceil(sum*1.25)+L.candies.size*6+4;
+  if(L.timed)L.timeLimit=Math.ceil(L.par*0.32)+25}
+
+function makeLevel(n){return n===1?level1():n===2?level2():n===3?level3():n===4?level4():n===5?level5():n===6?level6():n===7?level7():n===8?level8():n===9?level9():genLevel(n)}
+function solvable(L){
+  if(L.buttons&&L.buttons.length){const r=bfs(L,L.start.x,L.start.y,()=>false);
+    if(L.buttons.every(b=>r.dist.has(kk(b.x,b.y))))L.g=L.g.map(row=>row.map(v=>v==='s'?'.':v))}
+  const have=new Set();
+  for(let guard=0;guard<10;guard++){const r=bfs(L,L.start.x,L.start.y,c=>!have.has(c));
+    if(r.dist.has(kk(L.exit.x,L.exit.y)))return true;
+    const k=L.keys.find(k=>!have.has(k.c)&&r.dist.has(kk(k.x,k.y)));if(!k)return false;have.add(k.c)}
+  return false}
+// CORE END
+
+// ---------- sound ----------
+let AC=null,soundOn=store.get('sound',true);
+function tone(f,d=.12,type='sine',v=.15,slide=0,delay=0){
+  if(!soundOn)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+  const t=AC.currentTime+delay,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+slide),t+d);
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d+.02)}catch(e){}}
+const SFX={
+  step:()=>tone(520+Math.random()*60,.05,'triangle',.04),
+  bump:()=>tone(150,.1,'square',.06,-40),
+  candy:()=>{tone(880,.08,'triangle',.12);tone(1320,.12,'triangle',.12,0,.07)},
+  key:()=>{[988,1245,1568].forEach((f,i)=>tone(f,.12,'triangle',.12,0,i*.07))},
+  door:()=>{tone(300,.15,'sawtooth',.08,200);tone(600,.2,'triangle',.1,0,.12)},
+  locked:()=>{tone(220,.1,'square',.07);tone(180,.14,'square',.07,0,.1)},
+  portal:()=>tone(300,.4,'sine',.15,900),
+  hurt:()=>tone(500,.5,'sawtooth',.1,-380),
+  power:()=>{[660,880,1100,1320].forEach((f,i)=>tone(f,.1,'square',.06,0,i*.05))},
+  smash:()=>{tone(120,.25,'sawtooth',.14,-60);tone(90,.3,'square',.1,-40,.05)},
+  roar:()=>tone(160,.6,'sawtooth',.09,-90),
+  fail:()=>{[523,440,349,262].forEach((f,i)=>tone(f,.22,'triangle',.12,0,i*.16))},
+  buy:()=>{[784,988,1175,1568].forEach((f,i)=>tone(f,.12,'triangle',.12,0,i*.07))},
+  win:()=>{[523,659,784,1047,784,1047].forEach((f,i)=>tone(f,.18,'triangle',.14,0,i*.1))},
+};
+
+// ---------- hero ----------
+const CHARS=['zig','🐰','🦊','🐼','🐸','🐱','🐵','🐧','🦄'];
+let hero=store.get('heroV2','zig');
+const EMOJI='"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+function cEmoji(c,e,x,y,size,alpha=1){c.globalAlpha=alpha;c.font=`${size}px ${EMOJI}`;c.textAlign='center';c.textBaseline='middle';c.fillText(e,x,y);c.globalAlpha=1}
+
+// Zig the Bunny: the hand-drawn hero. Bunny ears, one big eye and one small eye, the toothy grin,
+// the red cheek mark, zigzag arms and block legs, all drawn in a 100×160 box with the feet at the bottom.
+function drawZig(c,x,footY,h,now,walking,flip){
+  const s=h/160;c.save();c.translate(x,footY);if(flip)c.scale(-1,1);c.scale(s,s);c.translate(-50,-160);
+  c.lineJoin='round';c.lineCap='round';const ink='#2b2350';c.strokeStyle=ink;c.lineWidth=4;
+  const step=walking?Math.sin(now/40)*6:0,wave=Math.sin(now/260)*.22,wig=Math.sin(now/330)*.07;
+  const ell=(cx,cy,rx,ry,rot,fill)=>{c.beginPath();c.ellipse(cx,cy,rx,ry,rot,0,Math.PI*2);c.fillStyle=fill;c.fill();c.stroke()};
+  const box=(x0,y0,w,hh,r,fill)=>{c.beginPath();c.roundRect?c.roundRect(x0,y0,w,hh,r):c.rect(x0,y0,w,hh);c.fillStyle=fill;c.fill();c.stroke()};
+  const leg=(lx,lift)=>{box(lx,134,10,24-lift,3,'#4a6cf7');box(lx-2,153-lift,14,7,3,ink)};
+  leg(39,Math.max(0,step));leg(52,Math.max(0,-step));
+  ell(31,30,9,30,-.35+wig,'#fffaf3');c.beginPath();c.ellipse(31,32,4,20,-.35+wig,0,7);c.fillStyle='#ffb3c7';c.fill();
+  ell(73,34,10,29,.6-wig,'#fffaf3');c.beginPath();c.ellipse(73,35,4.5,19,.6-wig,0,7);c.fillStyle='#ffb3c7';c.fill();
+  const arm=(sx,dir,rot)=>{c.save();c.translate(sx,106);c.rotate(rot);c.beginPath();c.moveTo(0,0);c.lineTo(9*dir,-1);c.lineTo(13*dir,-8);c.lineTo(19*dir,-2);c.lineTo(26*dir,-9);
+    c.strokeStyle=ink;c.lineWidth=9;c.stroke();c.strokeStyle='#ff9f43';c.lineWidth=4.5;c.stroke();
+    c.strokeStyle=ink;c.lineWidth=3;c.beginPath();c.arc(27*dir,-10,4.5,0,7);c.fillStyle='#fffaf3';c.fill();c.stroke();c.restore()};
+  arm(37,-1,walking?step*.03:wave*.4);arm(63,1,walking?-step*.03:-wave);
+  c.lineWidth=4;box(34,95,32,44,9,'#ff9f43');
+  c.beginPath();c.moveTo(36,118);for(let i=0;i<6;i++)c.lineTo(40+i*4.6,i%2?114:121);c.strokeStyle='#fff';c.lineWidth=3;c.stroke();c.strokeStyle=ink;
+  c.lineWidth=4;ell(50,71,26,27,0,'#fffaf3');
+  c.beginPath();c.moveTo(36,49);c.quadraticCurveTo(46,40,58,46);c.moveTo(44,46);c.quadraticCurveTo(54,36,66,48);c.lineWidth=3.5;c.stroke();
+  const blink=(now%3400)<130;c.lineWidth=3;
+  if(blink){c.beginPath();c.moveTo(33,66);c.lineTo(47,66);c.moveTo(56,68);c.lineTo(66,68);c.stroke()}
+  else{ell(40,65,7.5,8,0,'#fff');ell(61,68,5.5,5.8,0,'#fff');
+    const dot=(x0,y0,r,f)=>{c.fillStyle=f;c.beginPath();c.arc(x0,y0,r,0,7);c.fill()};
+    dot(41.5,66.5,3.4,ink);dot(62,69.5,2.7,ink);dot(42.6,65.2,1.2,'#fff');dot(62.8,68.5,.9,'#fff')}
+  c.beginPath();c.moveTo(32,54);c.lineTo(46,55.5);c.moveTo(56,59);c.lineTo(66,60);c.stroke();
+  c.fillStyle='rgba(255,99,120,.75)';c.beginPath();c.arc(29,77,4.5,0,7);c.fill();c.beginPath();c.arc(71,79,3.8,0,7);c.fill();
+  c.lineWidth=3.5;c.beginPath();c.moveTo(35,80);c.quadraticCurveTo(50,84,66,78);c.quadraticCurveTo(63,97,50,97);c.quadraticCurveTo(37,97,35,80);c.closePath();
+  c.fillStyle='#a8324a';c.fill();c.save();c.clip();
+  c.fillStyle='#ff8fa3';c.beginPath();c.ellipse(51,95,9,5,0,0,7);c.fill();
+  c.fillStyle='#fff';c.fillRect(40,79,7,6);c.fillRect(49,80,7,6);c.fillRect(58,78,5,5);c.restore();c.stroke();
+  c.restore()}
+
+// ---------- shop ----------
+const HELPERS=[
+  {id:'heart',e:'❤️',name:'Extra heart',price:15,say:'Use it any time for one more heart.'},
+  {id:'boots',e:'⚡',name:'Zoom boots',price:15,say:'Super fast for 7 seconds.'},
+  {id:'shield',e:'🛡️',name:'Shield',price:20,say:'Nothing hurts you for 7 seconds.'},
+  {id:'compass',e:'🧭',name:'Compass',price:25,say:'Gold dots show the way for 9 seconds.'},
+  {id:'freeze',e:'❄️',name:'Freeze',price:25,say:'Freezes critters, spikes, boats and dinos.'},
+  {id:'hammer',e:'🔨',name:'Hammer',price:30,say:'Smash cracked walls in this maze.'},
+  {id:'lantern',e:'🔦',name:'Lantern',price:20,say:'See much farther in night mazes.'},
+  {id:'clock',e:'⏱️',name:'Extra time',price:15,say:'+20 seconds on a timed maze.'},
+];
+let bag=store.get('bag',{});
+const SHOP=[
+  {id:'bow',e:'🎀',name:'Bow',price:15,slot:'hat'},
+  {id:'cap',e:'🧢',name:'Cap',price:25,slot:'hat'},
+  {id:'shades',e:'🕶️',name:'Cool shades',price:40,slot:'face'},
+  {id:'flower',e:'🌻',name:'Sunflower',price:50,slot:'hat'},
+  {id:'tophat',e:'🎩',name:'Top hat',price:70,slot:'hat'},
+  {id:'grad',e:'🎓',name:'Smart hat',price:100,slot:'hat'},
+  {id:'crown',e:'👑',name:'Crown',price:160,slot:'hat'},
+  {id:'sparkle',e:'✨',name:'Sparkles',price:30,slot:'trail'},
+  {id:'hearts',e:'💖',name:'Hearts',price:55,slot:'trail'},
+  {id:'bubbles',e:'🫧',name:'Bubbles',price:55,slot:'trail'},
+  {id:'stars',e:'⭐',name:'Stars',price:80,slot:'trail'},
+  {id:'rainbow',e:'🌈',name:'Rainbow',price:120,slot:'trail'},
+];
+let wallet=store.get('wallet',0),owned=store.get('owned',[]),wear=store.get('wear',{head:null,trail:null});
+const shopItem=id=>SHOP.find(s=>s.id===id);
+function saveShop(){store.set('wallet',wallet);store.set('owned',owned);store.set('wear',wear);store.set('bag',bag)}
+
+function drawHeroAt(c,x,footY,h,now,walking,face){
+  let headTop,eyeY;
+  if(hero==='zig'){drawZig(c,x,footY,h,now,walking,face===-1);headTop=footY-h*.725;eyeY=footY-h*.585}
+  else{c.save();c.translate(x,footY-h*.33);if(face===1)c.scale(-1,1);cEmoji(c,hero,0,0,h*.66);c.restore();headTop=footY-h*.62;eyeY=footY-h*.38}
+  const it=wear.head&&shopItem(wear.head);
+  if(it){if(it.slot==='face')cEmoji(c,it.e,x,eyeY,h*.27);else cEmoji(c,it.e,x,headTop-h*.06,h*.3)}}
+function heroIcon(id){const cv=document.createElement('canvas');cv.width=88;cv.height=88;const g=cv.getContext('2d');
+  if(id==='zig')drawZig(g,44,86,84,600,false,false);else cEmoji(g,id,44,48,64);return cv}
+
+// ---------- app state ----------
+let progress=store.get('progress',{unlocked:1,stars:{}});
+progress.unlocked=Math.min(progress.unlocked,LAST_LEVEL);
+let L=null,S=null;            // current level + play state
+const $=s=>document.querySelector(s);
+const screens={home:$('#home'),levels:$('#levels'),game:$('#game'),shop:$('#shop')};
+let currentScreen='home';
+function show(name){currentScreen=name;for(const k in screens)screens[k].hidden=k!==name;
+  if(name==='levels')renderLevels();if(name==='home')renderChars();if(name==='shop')renderShop()}
+
+function renderChars(){
+  const box=$('#chars');box.innerHTML='';
+  CHARS.forEach(c=>{const b=document.createElement('button');if(c==='zig')b.appendChild(heroIcon(c));else b.textContent=c;
+    b.setAttribute('aria-pressed',c===hero);b.setAttribute('aria-label',c==='zig'?'Hero Zig the Bunny':'Hero '+c);
+    b.onclick=()=>{hero=c;store.set('heroV2',c);renderChars();tone(700,.08,'triangle',.1)};box.appendChild(b)})}
+
+function renderShop(){
+  $('#wallet').textContent='🍭 '+wallet;
+  const fill=(box,slots)=>{box.innerHTML='';
+    SHOP.filter(s=>slots.includes(s.slot)).forEach(s=>{const b=document.createElement('button');const has=owned.includes(s.id);
+      const on=s.slot==='trail'?wear.trail===s.id:wear.head===s.id;
+      b.className='item'+(on?' wearing':'')+(!has&&wallet<s.price?' cant':'');
+      b.innerHTML=`<span class="e">${s.e}</span><span class="n">${s.name}</span><span class="p">${on?'Wearing ✓':has?'Wear':'🍭 '+s.price}</span>`;
+      b.onclick=()=>{
+        if(has){const slot=s.slot==='trail'?'trail':'head';wear[slot]=on?null:s.id;tone(700,.08,'triangle',.1)}
+        else if(wallet>=s.price){wallet-=s.price;owned.push(s.id);wear[s.slot==='trail'?'trail':'head']=s.id;SFX.buy();confetti()}
+        else{b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');SFX.locked();return}
+        saveShop();renderShop()};
+      box.appendChild(b)})};
+  fill($('#hatGrid'),['hat','face']);fill($('#trailGrid'),['trail']);
+  const hb=$('#helperGrid');hb.innerHTML='';
+  HELPERS.forEach(h=>{const b=document.createElement('button');const n=bag[h.id]||0;
+    b.className='item'+(wallet<h.price?' cant':'');
+    b.innerHTML=`<span class="e">${h.e}</span><span class="n">${h.name}</span><span class="d">${h.say}</span><span class="p">🍭 ${h.price}${n?` · have ${n}`:''}</span>`;
+    b.onclick=()=>{if(wallet<h.price){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');SFX.locked();return}
+      wallet-=h.price;bag[h.id]=n+1;SFX.buy();saveShop();renderShop()};
+    hb.appendChild(b)})}
+
+function totalStars(){return Object.values(progress.stars).reduce((a,b)=>a+b,0)}
+function renderLevels(){
+  $('#starTotal').textContent='★ '+totalStars()+' / '+LAST_LEVEL*3;
+  const box=$('#worlds');box.innerHTML='<div class="legend"><span>🦖 Dino boss</span><span>⏱️ Beat the clock</span><span>🌙 Night maze</span><span>✏️ Hand-drawn</span></div>';let cur=null;
+  WORLDS.forEach((wd,w)=>{const t=THEMES[wd.t],sec=document.createElement('div');sec.className='world';
+    sec.style.background=t.dark?t.floorA:t.bg;sec.style.color=t.dark?'#fff':'#2b2350';
+    sec.innerHTML=`<h3>${wd.icon||t.icon} World ${w+1}: ${wd.name||t.name} <small>Levels ${w*5+1}–${w*5+5}</small></h3>`;
+    const grid=document.createElement('div');grid.className='lv-grid';
+    for(let i=1;i<=5;i++){const n=w*5+i,b=document.createElement('button');b.className='lv';
+      const st=progress.stars[n]||0,locked=n>progress.unlocked;
+      const badge=[1,2,3,4,5,6,7,8,9].includes(n)?'✏️':isBoss(n)?'🦖':isTimed(n)?'⏱️':isNight(n)?'🌙':'';
+      b.disabled=locked;b.setAttribute('aria-label',locked?`Level ${n}, locked`:`Level ${n}, ${st} stars`);
+      b.innerHTML=(locked?'🔒':`${n}<span class="st">${'★'.repeat(st)}${'☆'.repeat(3-st)}</span>`)+(badge?`<span class="badge">${badge}</span>`:'');
+      if(n===progress.unlocked){b.classList.add('current');cur=b}
+      b.onclick=()=>startLevel(n);grid.appendChild(b)}
+    sec.appendChild(grid);box.appendChild(sec)});
+  if(cur)requestAnimationFrame(()=>cur.scrollIntoView({block:'center'}))}
+
+// ---------- tips for new things ----------
+const TIPS={
+  1:['🏆','Your hand-drawn maze!','<ul><li>🍭 Grab the swirl candies in the stream.</li><li>🌵 Spikes pop up and down. They wiggle right before they pop, so wait until they hide!</li><li>🐝 Sneak past the bee while it naps 💤.</li><li>🔑 Find the key to open the treasure room.</li><li>❤️ You have 3 hearts.</li></ul>'],
+  2:['🌀','Swirl Valley','<ul><li>Follow the arrows to the big swirl. It zooms you outside!</li><li>🐝 Three bees guard the zigzag.</li><li>🔑 The key is at the top of the tall path.</li><li>Swirl back in to open the cup with the 🎁 gift.</li></ul>'],
+  3:['⛵','Orange Bay','<ul><li>🌀 The spike bridge is risky, but it has candies. The swirl on the dock skips it!</li><li>🌀 Another swirl skips the spikes in the inner ring. Can you find it?</li><li>❓ The purple room has invisible walls. Bump around to find them.</li><li>🚤 Boats push you back to the 🚩 flag. Cross when they sail away!</li></ul>'],
+  4:['🛝','Conveyor Canyon','<ul><li>➡️ Arrows are conveyor belts. Step on and whoosh! They only go one way.</li><li>🌀 The swirl in the top-left corner pops you out at the top circle.</li><li>🔑 The key hides between the teeth on the right wall.</li><li>⚠️ One belt carries you over spikes. Hop on when they are down!</li><li>🎒 Stuck? Spend candies in the shop on helpers, then use them from your backpack.</li></ul>'],
+  5:['☁️','Bouncy Sky','<ul><li>⏱️ You have 500 seconds!</li><li>🟠 Bounce pads launch you over hills. Two bounces, fall down, more bounces, then one GIANT bounce!</li><li>🌵 The spike run goes 1, 2, 1, 2, 2, 2. Wait on the safe spots between them.</li><li>🌀 Then it is portal after portal after portal to the 🏆.</li></ul>'],
+  6:['🐯','Tiger Tower','<ul><li>⬇️ You fall down the tiger VERY fast!</li><li>⬅️➡️ Steer left and right to dodge the eyes, the nose and the spikes.</li><li>🔷 The spikes on the stripes stay up. Touch one and you go back up.</li><li>⬅️➡️ Hold a direction to keep sliding that way while you fall.</li><li>🚩 Two flags save your spot: one under the face, one halfway down the stripes.</li><li>🏁 Escape out of the tail!</li></ul>'],
+  7:['🗝️','Secret Towers','<ul><li>🤫 The first tower has two SECRET DOORS. They look like walls, but walk into the right one and it slides open. Look for a little sparkle ✨.</li><li>🌀 The portal in the middle of the spiral takes you to the second tower.</li><li>🚪 Some doors close in! Run through while they are open.</li><li>🧱 Some walls move up and down. Wait for a gap.</li><li>⤴ Jump over the fake wall to reach the last portal.</li></ul>'],
+  8:['⚡','Zap Fortress','<ul><li>⚡ The walls are electric! Touch one and you zap back to the start.</li><li>🔷 These spikes never go down. JUMP over them!</li><li>⌨️ Press Space to jump, or tap the ⤴ button. You jump 2 squares the way you are facing.</li><li>🔑 The key is inside the C. Jump in, jump out, then open the treasure box.</li></ul>'],
+  9:['✏️','Notebook Doodle','<ul><li>⚡ Yellow boost pads make you ZOOM super fast until you hit a wall!</li><li>⬇️ Zigzag down the striped tower.</li><li>🔢 In the hook, press the buttons in the right order: 1, then 2, then 3. Wrong order and they switch off!</li><li>🤫 The right order opens a secret room with a portal.</li></ul>'],
+  10:['🦖','Boss level: the Dino!','<ul><li>🦖 A hungry dino wakes up and chases you! It is slower than you, so keep moving.</li><li>🔑🔑 Two keys: open the yellow door first, then find the blue key.</li><li>✨ Glowing bubbles are power-ups: ⚡ zoom boots, ❤️ heart, 🛡️ shield, 🧭 compass, ❄️ freeze, 🔨 hammer.</li><li>🌀 Swirls zoom you across the maze.</li></ul>'],
+  11:['🌙','Night maze','It is dark! You can only see what is close to you. The exit always twinkles ✨, and a 🔦 lantern from the shop helps a lot.'],
+  12:['⏱️','Beat the clock!','Escape before the timer runs out. Grab ⏱️ for 20 more seconds!'],
+  15:['🔑🔑🔑','Three keys!','Yellow, blue, then pink. And watch out, the dino is back!'],
+  17:['🦖','The Dino is everywhere!','From now on the dino is in every maze.'],
+  25:['👑','The final maze!','Two dinos, three keys and the dark. Escape and you win the Rainbow Crown!'],
+};
+function modal(html){$('#modalCard').innerHTML=html;$('#modal').hidden=false}
+function closeModal(){$('#modal').hidden=true}
+
+// ---------- level start ----------
+function startLevel(n){
+  closeModal();hideMap();L=makeLevel(n);
+  S={x:L.start.x,y:L.start.y,ax:L.start.x,ay:L.start.y,anim:null,queued:null,run:null,face:1,
+     keys:new Set(),opened:new Set(),candies:new Set(L.candies),gotKeys:new Set(),moves:0,
+     check:{...L.start},inv:0,hearts:3,lost:0,won:false,dead:false,bump:0,camX:null,camY:null,paused:false,
+     clock:0,timeLeft:L.timeLimit,fx:{},hammer:false,compass:null,hudKey:''};
+  S.chasers=L.chasers.map(c=>({x:c.sx,y:c.sy,ax:c.sx,ay:c.sy,sx:c.sx,sy:c.sy,wake:3500,next:0,t0:0}));
+  L.spikeAt=new Map(L.spikes.map(s=>[kk(s.x,s.y),s]));
+  for(const gh of L.ghosts){gh.ax=gh.x;gh.ay=gh.y;gh.next=0}
+  $('#game').style.background=L.theme.bg;
+  $('#jumpBtn').hidden=!L.canJump;$('#dpad').classList.toggle('jump-only',!!L.canJump);
+  show('game');resize();updateHud();updateBagBadge();build3d();
+  const tip=TIPS[n];
+  if(tip){S.paused=true;const body=tip[2].startsWith('<')?tip[2]:`<p>${tip[2]}</p>`;
+    modal(`<div class="tip-icon">${tip[0]}</div><h2>${tip[1]}</h2>${body}<div class="actions"><button class="big-btn" id="goBtn">Let's go!</button></div>`);
+    $('#goBtn').onclick=()=>{closeModal();S.paused=false;tone(660,.1,'triangle',.1)};$('#goBtn').focus()}
+  else toast(`Level ${n} · ${isBoss(n)?'🦖 Boss level!':L.theme.icon+' '+L.theme.name}`);
+}
+
+function updateHud(){
+  $('#hTitle').innerHTML=`Level ${L.n} <small>${L.hand?L.name:L.theme.name}</small>`;
+  $('#hHearts').textContent='❤️'.repeat(Math.max(0,S.hearts))+'🤍'.repeat(Math.max(0,3-S.hearts));
+  $('#hCandy').textContent=`🍭 ${L.candies.size-S.candies.size}/${L.candies.size}`;
+  $('#hMoves').textContent=`👣 ${S.moves}`;
+  $('#hKeys').hidden=!L.keys.length;
+  $('#keychips').innerHTML=L.keys.map(k=>`<i style="background:${S.keys.has(k.c)||S.opened.has(k.c)?KEY_COLORS[k.c]:'transparent'}"></i>`).join('');
+  $('#hTime').hidden=!L.timeLimit;
+  $('#gSound').textContent=soundOn?'🔊':'🔇'}
+function updateLiveHud(now){
+  const parts=[];
+  for(const k of['boots','shield','compass','freeze'])if(now<(S.fx[k]||0))parts.push(ITEMS[k].e+Math.ceil((S.fx[k]-now)/1000));
+  if(S.hammer)parts.push('🔨');
+  const t=Math.max(0,Math.ceil(S.timeLeft));const key=parts.join(' ')+'|'+t;
+  if(key===S.hudKey)return;S.hudKey=key;
+  const f=$('#hFx');f.hidden=!parts.length;f.textContent=parts.join(' ');
+  if(L.timeLimit){const el=$('#hTime');el.textContent=`⏱️ ${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;el.classList.toggle('hurry',t<=15)}}
+
+let toastT=0;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900)}
+
+// ---------- movement ----------
+const stepMs=()=>performance.now()<(S.fx.boots||0)?62:L.fall?70:105;
+function passable(x,y){
+  if(L.g[y]&&L.g[y][x]==='x')return 'crack';
+  if(L.g[y]&&L.g[y][x]==='z')return 'secret';
+  if(L.g[y]&&L.g[y][x]==='l')return 'low';
+  const now=performance.now();
+  if(L.gates.some(g=>g.x===x&&g.y===y&&gateClosed(g,now)))return 'gate';
+  if(L.movers.some(m=>m.x===x&&Math.round(m.ay)===y))return 'mover';
+  if(L.g[y]&&L.g[y][x]==='i')return 'invisible';
+  if(!isFloor(L,x,y))return 'wall';const k=kk(x,y);
+  if(L.doors.has(k)&&!S.opened.has(L.doors.get(k)))return S.keys.has(L.doors.get(k))?'unlock':'locked';
+  return 'ok'}
+function tryMove(dx,dy,run){
+  if(!S||S.won||S.dead||S.paused||currentScreen!=='game')return;
+  if(L.fall&&dy)return; // falling levels: only left and right
+  if(L.fall&&S.anim&&S.anim.fall){
+    if(S.anim.side)return;const nx=S.x+dx,sp=L.spikeAt.get(kk(nx,S.y));
+    if(isFloor(L,nx,S.y)&&isFloor(L,S.x+dx,S.y-1)&&!(sp&&sp.always)){S.x=nx;S.anim.side=true;S.face=dx;S.dir=[dx,0]}
+    return}
+  if(S.anim&&((S.anim.belt&&!S.anim.fall)||S.anim.jump))return; // riding a belt or flying
+  if(S.anim){S.queued={dx,dy,run};return}
+  doMove(dx,dy,run)}
+function bumpInto(dx,dy){S.bump=performance.now();S.bumpDir=[dx,dy];S.run=null}
+function doMove(dx,dy,run,belt){
+  const tx=S.x+dx,ty=S.y+dy,p=passable(tx,ty);
+  if(dx)S.face=dx;S.dir=[dx,dy];
+  if(L.zap&&!belt&&(p==='wall'||p==='crack'||p==='invisible')){zap();return}
+  // never walk onto a spike that stays up: just turn to face it, ready to jump
+  const st=!belt&&L.spikeAt.get(kk(tx,ty));
+  if(st&&st.always){S.run=null;S.turned=performance.now();
+    if(!S.jumpHint||performance.now()-S.jumpHint>4000){S.jumpHint=performance.now();toast(`Spikes! Press ${matchMedia('(pointer:coarse)').matches?'⤴ Jump':'Space'} to jump over`)}return}
+  if(p==='wall'){bumpInto(dx,dy);SFX.bump();return}
+  if(p==='crack'){bumpInto(dx,dy);
+    if(S.hammer){L.g[ty][tx]='.';SFX.smash();burst(tx,ty,'#b08a5a',22);toast('SMASH! 🔨 A secret shortcut!');S.compass=null}
+    else{SFX.bump();toast('A cracked wall! Find the 🔨 hammer to smash it.')}return}
+  if(p==='secret'){L.g[ty][tx]='.';tone(520,.12,'triangle',.12);tone(780,.2,'triangle',.12,0,.1);burst(tx,ty,'#ffd23f',18);toast('A secret door! 🤫');S.compass=null}
+  if(p==='low'){S.run=null;S.turned=performance.now();toast(`A fake wall! Press ${matchMedia('(pointer:coarse)').matches?'⤴ Jump':'Space'} to jump over it`);return}
+  if(p==='gate'){bumpInto(dx,dy);SFX.locked();toast('The door is closed. Wait for it to open!');return}
+  if(p==='mover'){bumpInto(dx,dy);SFX.bump();return}
+  if(p==='invisible'){bumpInto(dx,dy);const k=kk(tx,ty);
+    if(!L.revealed.has(k)){L.revealed.add(k);tone(330,.18,'sine',.1,-120);burst(tx,ty,'#b78cff',10);
+      if(!S.sawInvisible){S.sawInvisible=true;toast('Bonk! An invisible wall 👻')}}else SFX.bump();return}
+  if(p==='locked'){bumpInto(dx,dy);SFX.locked();toast(`Find the ${KEY_NAMES[L.doors.get(kk(tx,ty))]} key first! 🔑`);return}
+  if(p==='unlock'){const c=L.doors.get(kk(tx,ty));S.opened.add(c);S.keys.delete(c);SFX.door();burst(tx,ty,KEY_COLORS[c]);toast('Door open! 🎉');S.compass=null}
+  trail(S.x,S.y);
+  S.anim={fx:S.x,fy:S.y,t0:performance.now(),dur:belt==='fall'?165:belt==='dash'?38:belt?75:stepMs(),belt:!!belt,fall:belt==='fall'};S.x=tx;S.y=ty;S.run=run?[dx,dy]:null;
+  if(belt==='fall'){}else if(belt==='dash'){if(Math.random()<.4)tone(900+Math.random()*200,.03,'sine',.03)}else if(belt)tone(420+Math.random()*80,.05,'sine',.05);else{S.moves++;SFX.step()}updateHud()}
+function arrive(){
+  const now=performance.now(),k=kk(S.x,S.y);let stop=false;
+  if(S.candies.has(k)){S.candies.delete(k);SFX.candy();burst(S.x,S.y,'#ff5da2');stop=true;updateHud()}
+  const key=L.keys.find(q=>q.x===S.x&&q.y===S.y&&!S.gotKeys.has(q.c));
+  if(key){S.gotKeys.add(key.c);S.keys.add(key.c);S.check={x:S.x,y:S.y};SFX.key();burst(S.x,S.y,KEY_COLORS[key.c]);toast(`Got the ${KEY_NAMES[key.c]} key! 🔑`);stop=true;S.compass=null;updateHud()}
+  const btn=L.buttons.find(b=>b.x===S.x&&b.y===S.y);
+  if(btn&&L.g.some(r=>r.includes('s'))){const next=(S.seq||0)+1;
+    if(btn.n===next){S.seq=next;tone(520+next*160,.15,'triangle',.13);burst(S.x,S.y,'#3fd17a',14);
+      if(next===L.buttons.length){L.g=L.g.map(r=>r.map(v=>v==='s'?'.':v));SFX.key();toast('You found the secret room! 🤫');S.compass=null}
+      else toast(`Button ${next}! ✅ Now find button ${next+1}`)}
+    else if(btn.n>(S.seq||0)){S.seq=btn.n===1?1:0;SFX.locked();toast(btn.n===1?'Button 1! ✅':`Wrong order! Start again with button 1`)}
+    stop=true}
+  const flag=L.flags.find(f=>f.x===S.x&&f.y===S.y&&!f.got);
+  if(flag){flag.got=true;S.check={x:S.x,y:S.y};SFX.key();burst(S.x,S.y,'#ff4f4f');toast('Checkpoint! 🚩');stop=true}
+  if(L.mystery.has(k)&&!S.sawMystery){S.sawMystery=true;toast('❓ Mystery room! Invisible walls here...')}
+  const it=L.items.find(i=>!i.got&&i.x===S.x&&i.y===S.y);
+  if(it){it.got=true;stop=true;SFX.power();burst(S.x,S.y,'#ffe14d',20);toast(ITEMS[it.t].e+' '+ITEMS[it.t].say);
+    applyPower(it.t)}
+  const p=L.portals.get(k);
+  if(p){burst(S.x,S.y,'#9b5cff');S.x=p.x;S.y=p.y;S.ax=p.x;S.ay=p.y;SFX.portal();burst(p.x,p.y,'#13c4a3');stop=true}
+  if(S.x===L.exit.x&&S.y===L.exit.y){win();return}
+  const belt=L.conv.get(kk(S.x,S.y));
+  if(belt&&passable(S.x+belt[0],S.y+belt[1])==='ok'){S.run=null;doMove(belt[0],belt[1],false,true);return}
+  // speed boosts: zoom until something stops you
+  const boost=L.boost.get(kk(S.x,S.y));
+  if(p)S.dash=null;else if(boost){if(!S.dash)toast('ZOOM! ⚡');S.dash=boost}
+  if(S.dash){const[dx,dy]=S.dash;if(passable(S.x+dx,S.y+dy)==='ok'){S.run=null;doMove(dx,dy,false,'dash');return}
+    S.dash=null;S.bump=performance.now();S.bumpDir=[dx,dy];SFX.bump();burst(S.x+dx*.4,S.y+dy*.4,'#ffd23f',10)}
+  const pad=L.pads.get(kk(S.x,S.y));
+  if(pad){const tx=S.x+pad.d[0]*pad.n,ty=S.y+pad.d[1]*pad.n;
+    if(passable(tx,ty)==='ok'){S.run=null;S.queued=null;if(pad.d[0])S.face=pad.d[0];
+      S.anim={fx:S.x,fy:S.y,t0:performance.now(),dur:Math.min(1300,200+pad.n*80),jump:pad.n};S.x=tx;S.y=ty;S.padHit={k:kk(tx-pad.d[0]*pad.n,ty-pad.d[1]*pad.n),t:performance.now()};
+      tone(220,.25+pad.n*.03,'sine',.16,pad.n>5?900:500);if(pad.n>5)toast('GIANT BOUNCE! 🚀');return}}
+  if(L.spikeAt.has(kk(S.x,S.y)))stop=true;
+  if(S.run&&!stop){const[dx,dy]=S.run;
+    const side=dy?[[1,0],[-1,0]]:[[0,1],[0,-1]];
+    const branch=side.some(([sx,sy])=>isFloor(L,S.x+sx,S.y+sy));
+    const nk=kk(S.x+dx,S.y+dy);
+    if(!branch&&passable(S.x+dx,S.y+dy)==='ok'&&!L.spikeAt.has(nk)){doMove(dx,dy,true);return}}
+  S.run=null;
+  if(S.queued){const q=S.queued;S.queued=null;doMove(q.dx,q.dy,q.run)}}
+
+function applyPower(t){
+  const now=performance.now(),dur={boots:7000,shield:7000,compass:9000,freeze:6000}[t];
+  if(dur)S.fx[t]=Math.max(now,S.fx[t]||0)+dur;
+  if(t==='heart')S.hearts=Math.min(5,S.hearts+1);
+  if(t==='hammer')S.hammer=true;
+  if(t==='clock')S.timeLeft+=20;
+  if(t==='compass')S.compass=null;
+  if(t==='lantern')S.lantern=true;
+  updateHud()}
+function bagUsable(id){
+  if(id==='heart')return S.hearts<5;if(id==='hammer')return!S.hammer&&L.g.some(r=>r.includes('x'));
+  if(id==='lantern')return!!L.fog&&!S.lantern;if(id==='clock')return!!L.timeLimit;return true}
+function openBag(){
+  if(!S||S.won||S.dead)return;S.paused=true;S.bagAt=performance.now();
+  const total=HELPERS.reduce((a,h)=>a+(bag[h.id]||0),0);
+  modal(`<div class="tip-icon">🎒</div><h2>Backpack</h2>${total?'<p>Tap a helper to use it now.</p>':'<p>Your backpack is empty. Buy helpers in the 🛍️ shop with your candies.</p>'}
+    <div class="bag-grid">${HELPERS.filter(h=>bag[h.id]).map(h=>`<button class="item" data-h="${h.id}" ${bagUsable(h.id)?'':'disabled'}><span class="e">${h.e}</span><span class="n">${h.name}</span><span class="p">×${bag[h.id]}</span></button>`).join('')}</div>
+    <div class="actions"><button class="big-btn alt small" id="bagClose">Back to the maze</button></div>`);
+  const resume=()=>{closeModal();const gap=performance.now()-S.bagAt;for(const k in S.fx)S.fx[k]+=gap;S.paused=false};
+  $('#bagClose').onclick=resume;$('#bagClose').focus();
+  document.querySelectorAll('.bag-grid .item').forEach(b=>b.onclick=()=>{const id=b.dataset.h;
+    bag[id]--;if(!bag[id])delete bag[id];saveShop();resume();applyPower(id);SFX.power();burst(S.x,S.y,'#ffe14d',20);
+    toast(HELPERS.find(h=>h.id===id).e+' '+(ITEMS[id]?ITEMS[id].say:'Lantern on! You can see much farther.'));updateBagBadge()})}
+function updateBagBadge(){const n=HELPERS.reduce((a,h)=>a+(bag[h.id]||0),0);$('#gBag').innerHTML='🎒'+(n?`<b>${n}</b>`:'')}
+
+function hurt(kind){
+  const now=performance.now();
+  if(L.fall&&kind==='spike'){if(now<S.inv)return;SFX.hurt();burst(S.x,S.y,'#4f7dff',20);
+    toast(S.check.x===L.start.x&&S.check.y===L.start.y?'Ouch, spikes! Back to the top.':'Ouch, spikes! Back to the 🚩 flag.');
+    S.x=S.check.x;S.y=S.check.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=now+600;return}
+  if(now<S.inv||now<(S.fx.shield||0))return;
+  S.hearts--;S.lost++;SFX.hurt();updateHud();
+  const fl=$('#flash');fl.style.opacity=.35;setTimeout(()=>fl.style.opacity=0,180);
+  burst(S.x,S.y,'#ffffff',20);
+  if(S.hearts<=0){fail('hearts');return}
+  toast(kind==='spike'?'Ouch, spikes! Wait until they hide.':kind==='dino'?'CHOMP! The 🦖 got you!':`Oops! The ${L.theme.baddie} got you!`);
+  S.x=S.check.x;S.y=S.check.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=now+1500;S.compass=null;
+  for(const c of S.chasers){c.x=c.sx;c.y=c.sy;c.ax=c.x;c.ay=c.y;c.wake=S.clock+2500;c.t0=0}}
+
+function zap(){
+  tone(1200,.08,'square',.12,-200);tone(600,.25,'sawtooth',.12,-450,.06);
+  const fl=$('#flash');fl.style.background='#ffe14d';fl.style.opacity=.6;setTimeout(()=>{fl.style.opacity=0;setTimeout(()=>fl.style.background='',400)},160);
+  burst(S.x,S.y,'#ffe14d',24);toast('ZAP! ⚡ The walls are electric! Back to the start.');
+  S.x=L.start.x;S.y=L.start.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=performance.now()+800;S.compass=null}
+function jump(){
+  if(!S||!L.canJump||S.won||S.dead||S.paused||S.anim||currentScreen!=='game')return;
+  const[dx,dy]=S.dir||[S.face||1,0],mid=passable(S.x+dx,S.y+dy),to=passable(S.x+2*dx,S.y+2*dy);
+  if((mid!=='ok'&&mid!=='low')||to!=='ok'){if(L.zap&&mid!=='ok'&&mid!=='locked'){zap();return}bumpInto(dx,dy);SFX.bump();return}
+  S.run=null;S.queued=null;trail(S.x,S.y);
+  S.anim={fx:S.x,fy:S.y,t0:performance.now(),dur:360,jump:2};S.x+=2*dx;S.y+=2*dy;S.moves++;tone(330,.22,'sine',.14,500);updateHud()}
+
+function squish(msg){
+  const now=performance.now();if(now<S.inv||now<(S.fx.shield||0))return;
+  SFX.smash();burst(S.x,S.y,'#ff7a1a',22);toast(msg);
+  S.x=S.check.x;S.y=S.check.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=now+1000;S.compass=null}
+
+function splash(){
+  const now=performance.now();if(now<S.inv||now<(S.fx.shield||0))return;
+  tone(700,.35,'sine',.12,-500);burst(S.x,S.y,'#4fb6ff',24);toast('SPLASH! 🚤 The boat pushed you back!');
+  S.x=S.check.x;S.y=S.check.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=now+1000;S.compass=null}
+
+function fail(why){
+  S.dead=true;S.anim=null;SFX.fail();const n=L.n;
+  setTimeout(()=>{
+    modal(`<div class="tip-icon">${why==='time'?'⏰':'💔'}</div><h2>${why==='time'?"Time's up!":'Out of hearts!'}</h2>
+      <p>${why==='time'?'So close! Grab the ⏱️ clocks for extra time.':'Watch the spikes wiggle before they pop, and sneak past critters while they nap 💤.'}</p>
+      <div class="actions"><button class="big-btn" id="retryBtn">↻ Try again</button><button class="big-btn alt small" id="mapBtn3">🗺️ Map</button></div>`);
+    $('#retryBtn').onclick=()=>startLevel(n);$('#retryBtn').focus();$('#mapBtn3').onclick=()=>{closeModal();show('levels')}},600)}
+
+function win(){
+  S.won=true;S.anim=null;const n=L.n;
+  const got=L.candies.size-S.candies.size,allCandy=S.candies.size===0,noHurt=S.lost===0;
+  const stars=1+(allCandy?1:0)+(noHurt?1:0);
+  progress.stars[n]=Math.max(progress.stars[n]||0,stars);
+  progress.unlocked=Math.max(progress.unlocked,Math.min(LAST_LEVEL,n+1));store.set('progress',progress);
+  const earned=got+stars;wallet+=earned;saveShop();
+  SFX.win();confetti();
+  const last=n===LAST_LEVEL;
+  setTimeout(()=>{
+    modal(`<div class="tip-icon">${last?'👑':L.exitIcon}</div><h2>${last?'You beat all 25 mazes!':'You escaped!'}</h2>
+      <div class="stars"><span>★</span><span>★</span><span>★</span></div>
+      <div class="stat-row"><span class="chip">🍭 ${got}/${L.candies.size}</span><span class="chip">${noHurt?'❤️ No ouches!':'💔 Hurt '+S.lost+'×'}</span><span class="chip">👣 ${S.moves}</span></div>
+      <p><b>+${earned} 🍭</b> for the shop! ${stars===3?'Perfect! Every star is yours!':!allCandy?'Grab every 🍭 for another star.':'Escape without getting hurt for the last star.'}</p>
+      <div class="actions">${last?'':`<button class="big-btn" id="nextBtn">Next level ▶</button>`}
+      <div class="row"><button class="big-btn alt small" id="againBtn">↻ Again</button><button class="big-btn alt small" id="mapBtn2">🗺️ Map</button><button class="big-btn pink small" id="shopBtn2">🛍️ Shop</button></div></div>`);
+    const sp=[...document.querySelectorAll('.stars span')];
+    sp.forEach((s,i)=>setTimeout(()=>{s.classList.add(i<stars?'on':'off');if(i<stars)tone(880+i*220,.15,'triangle',.12)},250+i*300));
+    if(!last){$('#nextBtn').onclick=()=>startLevel(n+1);$('#nextBtn').focus()}
+    $('#againBtn').onclick=()=>startLevel(n);$('#mapBtn2').onclick=()=>{closeModal();show('levels')};$('#shopBtn2').onclick=()=>{closeModal();show('shop')};
+  },700)}
+
+// ---------- input ----------
+const KEYMAP={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
+addEventListener('keydown',e=>{
+  if(currentScreen!=='game')return;
+  if(mapOpen){if(['m','M','Escape',' ','Enter'].includes(e.key)){e.preventDefault();toggleMap()}return}
+  if(e.key==='m'||e.key==='M'){toggleMap();return}
+  if(!$('#modal').hidden){if(e.key==='Enter'||e.key===' '){const b=$('#modalCard .big-btn');if(b&&document.activeElement===document.body){b.click();e.preventDefault()}}return}
+  const d=KEYMAP[e.key];if(d){e.preventDefault();tryMove(d[0],d[1],e.shiftKey)}
+  else if(e.key==='r'||e.key==='R')startLevel(L.n);
+  else if(e.key==='b'||e.key==='B')openBag();
+  else if(e.key===' '){e.preventDefault();jump()}});
+let sw=null;
+$('#board').addEventListener('pointerdown',e=>{sw={x:e.clientX,y:e.clientY}});
+$('#board').addEventListener('pointerup',e=>{if(!sw)return;const dx=e.clientX-sw.x,dy=e.clientY-sw.y;sw=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;
+  if(Math.abs(dx)>Math.abs(dy))tryMove(Math.sign(dx),0,true);else tryMove(0,Math.sign(dy),true)});
+document.querySelectorAll('#dpad .pad button').forEach(b=>{
+  const[dx,dy]=b.dataset.d.split(',').map(Number);let iv=0;
+  const stop=()=>{clearInterval(iv);iv=0};
+  b.addEventListener('pointerdown',e=>{e.preventDefault();tryMove(dx,dy,false);stop();iv=setInterval(()=>tryMove(dx,dy,false),130)});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,stop))});
+$('#playBtn').onclick=()=>startLevel(progress.unlocked);
+$('#mapBtn').onclick=()=>show('levels');
+$('#shopBtn').onclick=()=>show('shop');
+$('#lvBack').onclick=()=>show('home');
+$('#shopBack').onclick=()=>show('home');
+$('#gBack').onclick=()=>{closeModal();show('levels')};
+$('#gRestart').onclick=()=>startLevel(L.n);
+$('#gBag').onclick=openBag;
+$('#jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();jump()});
+$('#gSound').onclick=()=>{soundOn=!soundOn;store.set('sound',soundOn);updateHud();tone(660,.1,'triangle',.1)};
+
+// ---------- rendering ----------
+const cv=$('#cv'),ctx=cv.getContext('2d');let VW=0,VH=0,DPR=1;
+function resize(){const r=$('#board').getBoundingClientRect();DPR=Math.min(2,devicePixelRatio||1);VW=r.width;VH=r.height;
+  if(R3.r&&VW&&VH){R3.r.setSize(VW,VH,false);R3.cam.aspect=VW/VH;R3.cam.updateProjectionMatrix()}
+  cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR)}
+addEventListener('resize',resize);
+const tileSize=()=>Math.max(26,Math.min(58,Math.floor(Math.min(VW/L.W,(VH-8)/L.H))));
+function emoji(e,x,y,size,alpha=1){cEmoji(ctx,e,x,y,size,alpha)}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):ctx.rect(x,y,w,h)}
+const hash=(x,y)=>((x*73856093)^(y*19349663))>>>0;
+function wallColors(x,y){const t=L.theme;if(t.wall!=='rainbow')return[t.wall,t.wallTop,t.wallEdge];
+  const h=((x+y)*14)%360;return[`hsl(${h},75%,55%)`,`hsl(${h},90%,72%)`,`hsl(${h},60%,40%)`]}
+function drawKey(cx,cy,T,col){
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(-.6);ctx.lineWidth=T*.09;ctx.strokeStyle='rgba(0,0,0,.35)';ctx.fillStyle=col;
+  ctx.beginPath();ctx.arc(-T*.17,0,T*.15,0,7);ctx.fill();ctx.stroke();
+  ctx.fillRect(-T*.04,-T*.05,T*.36,T*.1);ctx.strokeRect(-T*.04,-T*.05,T*.36,T*.1);
+  ctx.fillRect(T*.2,0,T*.07,T*.14);ctx.fillRect(T*.08,0,T*.07,T*.1);
+  ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(-T*.17,0,T*.05,0,7);ctx.fill();ctx.restore()}
+function drawPortal(cx,cy,T,col,time){
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(time/400);
+  const g=ctx.createRadialGradient(0,0,0,0,0,T*.48);g.addColorStop(0,'#fff');g.addColorStop(.5,col);g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,T*.48,0,7);ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=T*.07;ctx.lineCap='round';ctx.beginPath();
+  for(let a=0;a<12;a+=.2){const r=T*.03+a*T*.032;const px=Math.cos(a)*r,py=Math.sin(a)*r;a?ctx.lineTo(px,py):ctx.moveTo(px,py)}
+  ctx.stroke();ctx.restore()}
+function drawSpikes(sp,T,st,now){
+  const x=sp.x*T,y=sp.y*T;
+  ctx.fillStyle='rgba(70,70,95,.28)';rr(x+T*.07,y+T*.07,T*.86,T*.86,T*.14);ctx.fill();
+  for(let i=0;i<3;i++)for(let j=0;j<2;j++){const cx=x+T*(.25+i*.25),cy=y+T*(.36+j*.32);
+    if(st==='down'){ctx.fillStyle='rgba(40,40,60,.5)';ctx.beginPath();ctx.ellipse(cx,cy+T*.04,T*.06,T*.035,0,0,7);ctx.fill();continue}
+    const hgt=st==='up'?T*.27:T*.07+Math.abs(Math.sin(now/45))*T*.05;
+    ctx.fillStyle=sp.always?'#4f7dff':st==='up'?'#e4e9f5':'#a9b1c7';ctx.strokeStyle='#454b66';ctx.lineWidth=T*.03;ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(cx-T*.085,cy+T*.06);ctx.lineTo(cx,cy+T*.06-hgt);ctx.lineTo(cx+T*.085,cy+T*.06);ctx.closePath();ctx.fill();ctx.stroke()}}
+
+let last=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);const dt=Math.min(50,now-last);last=now;
+  if(currentScreen==='game'&&L){update(now,dt);draw3d(now);updateLiveHud(now)}
+  if(currentScreen==='home')drawPreview($('#homeHero'),now);
+  if(currentScreen==='shop')drawPreview($('#shopHero'),now);
+  if(mapOpen)drawMap(now);
+  drawFx(dt)}
+
+function chaserStep(c){
+  // one step along the shortest path toward the hero (dinos can't use swirls or locked doors)
+  const ok=(x,y)=>{if(!isFloor(L,x,y))return false;const k=kk(x,y);return!(L.doors.has(k)&&!S.opened.has(L.doors.get(k)))};
+  const goal=kk(S.x,S.y),prev=new Map([[kk(c.x,c.y),null]]),q=[[c.x,c.y]];
+  for(let i=0;i<q.length;i++){const[x,y]=q[i];if(kk(x,y)===goal)break;
+    for(const[dx,dy]of DIRS){const nx=x+dx,ny=y+dy,k=kk(nx,ny);if(!prev.has(k)&&ok(nx,ny)){prev.set(k,kk(x,y));q.push([nx,ny])}}}
+  if(!prev.has(goal))return null;let k=goal,p=prev.get(k);
+  while(p&&p!==kk(c.x,c.y)){k=p;p=prev.get(k)}
+  return p?k.split(',').map(Number):null}
+
+function update(now,dt){
+  if(S.anim){const t=(now-S.anim.t0)/S.anim.dur;
+    if(t>=1){S.anim=null;S.ax=S.x;S.ay=S.y;arrive()}
+    else{S.ax=S.anim.fx+(S.x-S.anim.fx)*t;S.ay=S.anim.fy+(S.y-S.anim.fy)*t}}
+  if(S.won||S.paused||S.dead)return;
+  S.clock+=dt;
+  if(L.fall&&!S.anim&&passable(S.x,S.y+1)==='ok')doMove(0,1,false,'fall');
+  const frozen=now<(S.fx.freeze||0);
+  if(L.timeLimit){S.timeLeft-=dt/1000;if(S.timeLeft<=0){S.timeLeft=0;fail('time');return}}
+  // spikes hurt when they are up under the hero
+  const airborne=S.anim&&S.anim.jump;
+  const onTile=!S.anim||(now-S.anim.t0)/S.anim.dur>(airborne?.95:.5);
+  const sp=onTile&&L.spikeAt.get(kk(S.x,S.y));
+  if(sp&&!frozen&&spikeState(sp,now)==='up'){hurt('spike');if(S.dead)return}
+  // critters
+  const tick=Math.max(220,500-L.d*2.6),napLen=Math.max(1500,2800-L.d*11);
+  for(const gh of L.ghosts){
+    if(!gh.next)gh.next=now+tick+gh.phase*600;
+    if(frozen){gh.next=now+tick;if(gh.nap)gh.nap+=dt;continue}
+    if(gh.nap&&now<gh.nap){gh.ax=gh.x;gh.ay=gh.y;continue}
+    gh.nap=0;
+    if(now>=gh.next){gh.fx=gh.x;gh.fy=gh.y;
+      let ni=gh.i+gh.dir;
+      if(ni<0||ni>=gh.path.length){gh.dir=-gh.dir;ni=gh.i+gh.dir;
+        if(gh.dir===1){gh.nap=now+napLen;gh.next=gh.nap+tick;continue}} // nap after each full lap
+      gh.i=ni;gh.x=gh.path[ni].x;gh.y=gh.path[ni].y;gh.t0=now;gh.next=now+tick}
+    const t=gh.t0?Math.min(1,(now-gh.t0)/(tick*.6)):1;
+    gh.ax=gh.fx==null?gh.x:gh.fx+(gh.x-gh.fx)*t;gh.ay=gh.fy==null?gh.y:gh.fy+(gh.y-gh.fy)*t;
+    if(!airborne&&Math.hypot(gh.ax-S.ax,gh.ay-S.ay)<.62){hurt('critter');if(S.dead)return;break}}
+  // doors that close in, and walls that move up and down
+  if(onTile&&!airborne&&!frozen&&L.gates.some(g=>g.x===S.x&&g.y===S.y&&gateClosed(g,now))){squish('SQUISH! The door closed on you! Back to the 🚩');return}
+  for(const m of L.movers){
+    if(frozen){m.next=now+210;continue}
+    if(!m.next)m.next=now+210+m.off;
+    if(now>=m.next){let ni=m.i+m.dir;if(ni<0||ni>=m.track.length){m.dir=-m.dir;ni=m.i+m.dir}m.fy=m.track[m.i];m.i=ni;m.y=m.track[ni];m.t0=now;m.next=now+210}
+    const t=m.t0?Math.min(1,(now-m.t0)/180):1;m.ay=m.fy==null?m.y:m.fy+(m.y-m.fy)*t;
+    if(!airborne&&Math.abs(m.x-S.ax)<.6&&Math.abs(m.ay-S.ay)<.6){squish('BONK! A moving wall pushed you back to the 🚩');return}}
+  // boats never nap: wait for a gap and cross
+  for(const b of L.boats){
+    if(frozen){b.next=now+b.tick;continue}
+    if(!b.next)b.next=now+b.tick;
+    if(now>=b.next){let ni=b.i+b.dir;if(ni<0||ni>=b.path.length){b.dir=-b.dir;ni=b.i+b.dir}
+      b.fx=b.x;b.fy=b.y;b.i=ni;b.x=b.path[ni].x;b.y=b.path[ni].y;b.t0=now;b.next=now+b.tick}
+    const t=b.t0?Math.min(1,(now-b.t0)/b.tick):1;
+    b.ax=b.fx==null?b.x:b.fx+(b.x-b.fx)*t;b.ay=b.y;
+    if(!airborne&&Math.abs(b.ax-S.ax)<.7&&Math.abs(b.ay-S.ay)<.5){splash();break}}
+  // dinos
+  const ctick=Math.max(255,470-L.d*2.2);
+  for(const c of S.chasers){
+    if(frozen){c.next=now+ctick;continue}
+    if(S.clock<c.wake){continue}
+    if(!c.roared){c.roared=true;SFX.roar();toast('🦖 The dino woke up! Run!')}
+    if(now>=c.next){const st=chaserStep(c);c.next=now+ctick;
+      if(st){c.fx=c.x;c.fy=c.y;c.x=st[0];c.y=st[1];c.t0=now}}
+    const t=c.t0?Math.min(1,(now-c.t0)/(ctick*.7)):1;
+    c.ax=c.fx==null?c.x:c.fx+(c.x-c.fx)*t;c.ay=c.fy==null?c.y:c.fy+(c.y-c.fy)*t;
+    if(!airborne&&Math.hypot(c.ax-S.ax,c.ay-S.ay)<.6){hurt('dino');if(S.dead)return;break}}}
+
+function compassPath(){
+  if(S.compass&&S.compass.at===kk(S.x,S.y))return S.compass.path;
+  const need=L.keys.filter(k=>!S.gotKeys.has(k.c)).sort((a,b)=>a.c-b.c)[0]||L.exit;
+  const r=bfs(L,S.x,S.y,c=>!S.keys.has(c)&&!S.opened.has(c)),path=[];
+  let cur=r.dist.has(kk(need.x,need.y))?kk(need.x,need.y):kk(L.exit.x,L.exit.y);
+  while(cur&&r.dist.has(cur)){path.unshift(cur.split(',').map(Number));cur=r.prev.get(cur)}
+  S.compass={at:kk(S.x,S.y),path};return path}
+
+function draw(now){
+  const th=L.theme,T=tileSize(),frozen=now<(S.fx.freeze||0);
+  const mw=L.W*T,mh=L.H*T;
+  let tx=mw<=VW?(VW-mw)/2:Math.min(0,Math.max(VW-mw,VW/2-(S.ax+.5)*T));
+  let ty=mh<=VH?(VH-mh)/2:Math.min(0,Math.max(VH-mh,VH/2-(S.ay+.5+(L.fall?Math.min(5,VH/T*.28):0))*T));
+  if(S.camX==null||Math.abs(S.camX-tx)>VW){S.camX=tx;S.camY=ty}
+  const ck=L.fall?.4:.18;S.camX+=(tx-S.camX)*ck;S.camY+=(ty-S.camY)*ck;
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle=th.bg;ctx.fillRect(0,0,VW,VH);
+  ctx.translate(Math.round(S.camX),Math.round(S.camY));
+  const x0=Math.max(0,Math.floor(-S.camX/T)-1),x1=Math.min(L.W,Math.ceil((VW-S.camX)/T)+1);
+  const y0=Math.max(0,Math.floor(-S.camY/T)-1),y1=Math.min(L.H,Math.ceil((VH-S.camY)/T)+2);
+  // floor
+  const solid=(x,y)=>{const v=L.g[y][x];return v==='#'||v==='x'||v==='z'||v==='s'||(v==='i'&&L.revealed.has(kk(x,y)))};
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const v=L.g[y][x],k=kk(x,y);
+    if(v==='v'){const h=hash(x,y);if(h%7===0){const cx=(x+.5)*T+Math.sin(now/1800+h)*T*.25,cy=(y+.5)*T;ctx.fillStyle='rgba(255,255,255,.75)';
+      ctx.beginPath();ctx.arc(cx-T*.22,cy,T*.2,0,7);ctx.arc(cx,cy-T*.1,T*.26,0,7);ctx.arc(cx+T*.24,cy,T*.19,0,7);ctx.fill()}continue}
+    if(v!=='.'&&v!=='i'&&v!=='l')continue;
+    if(L.water.has(k)){ctx.fillStyle=(x+y)%2?'#5ec3ff':'#4bb5f5';ctx.fillRect(x*T,y*T,T,T);
+      ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=T*.05;ctx.beginPath();
+      for(let i=0;i<=8;i++){const px=x*T+i*T/8,py=y*T+T*.5+Math.sin(now/300+i*.8+x)*T*.08;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.stroke();continue}
+    ctx.fillStyle=(x+y)%2?th.floorA:th.floorB;ctx.fillRect(x*T,y*T,T,T);
+    if(L.mystery.has(k)||v==='i'){ctx.fillStyle=`rgba(155,92,255,${.16+.06*Math.sin(now/400+x+y)})`;ctx.fillRect(x*T,y*T,T,T)}}
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.beginPath();ctx.arc((L.start.x+.5)*T,(L.start.y+.5)*T,T*.38,0,7);ctx.fill();
+  const pul=.5+.5*Math.sin(now/300);
+  const eg=ctx.createRadialGradient((L.exit.x+.5)*T,(L.exit.y+.5)*T,0,(L.exit.x+.5)*T,(L.exit.y+.5)*T,T*(.7+pul*.25));
+  eg.addColorStop(0,'rgba(255,230,90,.95)');eg.addColorStop(1,'rgba(255,230,90,0)');ctx.fillStyle=eg;ctx.fillRect((L.exit.x-1)*T,(L.exit.y-1)*T,T*3,T*3);
+  // spikes sit in the floor
+  for(const sp of L.spikes)if(sp.x>=x0&&sp.x<x1&&sp.y>=y0&&sp.y<y1)drawSpikes(sp,T,frozen?'down':spikeState(sp,now),now);
+  // walls with a chunky 3D top; cracked walls look sandy with cracks
+  const lift=T*.2;
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(L.g[y][x]==='i'&&L.revealed.has(kk(x,y))){
+    ctx.fillStyle='rgba(155,92,255,.45)';rr(x*T+T*.06,y*T+T*.06,T*.88,T*.88,T*.15);ctx.fill();
+    ctx.strokeStyle='rgba(110,50,220,.8)';ctx.lineWidth=T*.05;ctx.setLineDash([T*.12,T*.08]);ctx.stroke();ctx.setLineDash([]);emoji('👻',(x+.5)*T,(y+.5)*T,T*.42,.8)}
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(solid(x,y)&&L.g[y][x]!=='i'){
+    let[c,,edge]=wallColors(x,y);if(L.g[y][x]==='x'){c='#c9a46e';edge='#8a6a3e'}
+    ctx.fillStyle=edge;ctx.fillRect(x*T,y*T,T,T);ctx.fillStyle=c;ctx.fillRect(x*T,y*T-lift,T,T)}
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const v=L.g[y][x];if(v==='.'||v==='i'||v==='v'||v==='l')continue;
+    if(v==='z'&&(hash(x,y)+Math.floor(now/140))%37===0)emoji('✨',(x+.5)*T,(y+.3)*T-lift,T*.45);
+    const[,top]=wallColors(x,y);const above=y>0&&solid(x,y-1);
+    if(!above){ctx.fillStyle=v==='x'?'#e3c48f':top;ctx.fillRect(x*T,y*T-lift,T,T*.22)}
+    if(v==='x'){ctx.strokeStyle='#5c4426';ctx.lineWidth=T*.06;ctx.lineCap='round';ctx.beginPath();
+      ctx.moveTo(x*T+T*.2,y*T-lift+T*.15);ctx.lineTo(x*T+T*.45,y*T-lift+T*.4);ctx.lineTo(x*T+T*.32,y*T-lift+T*.6);ctx.lineTo(x*T+T*.62,y*T-lift+T*.85);
+      ctx.moveTo(x*T+T*.45,y*T-lift+T*.4);ctx.lineTo(x*T+T*.78,y*T-lift+T*.3);ctx.stroke()}
+    else if(th.zap){if((hash(x,y)+Math.floor(now/120))%23===0)emoji('⚡',(x+.5)*T,(y+.4)*T-lift,T*.55)}
+    else if(hash(x,y)%13===0&&y>0&&y<L.H-1&&x>0&&x<L.W-1)emoji(th.decor,(x+.5)*T,(y+.4)*T-lift,T*.5)}
+  // fake low walls, doors that close in, walls that move up and down
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(L.g[y][x]==='l'){
+    ctx.fillStyle='#b5651d';rr(x*T+T*.08,y*T+T*.35,T*.84,T*.55,T*.1);ctx.fill();ctx.fillStyle='#e08a3c';rr(x*T+T*.08,y*T+T*.28,T*.84,T*.2,T*.08);ctx.fill();
+    ctx.strokeStyle='rgba(80,40,10,.5)';ctx.lineWidth=T*.04;ctx.beginPath();ctx.moveTo(x*T+T*.08,y*T+T*.62);ctx.lineTo(x*T+T*.92,y*T+T*.62);ctx.moveTo(x*T+T*.5,y*T+T*.48);ctx.lineTo(x*T+T*.5,y*T+T*.62);ctx.stroke()}
+  for(const gt of L.gates){const x=gt.x*T,y=gt.y*T,c=!frozen&&gateClosed(gt,now),w=!c&&gateWarn(gt,now)&&Math.floor(now/120)%2;
+    ctx.fillStyle='#7a4a1f';ctx.fillRect(x,y+T*.05,T*.12,T*.9);ctx.fillRect(x+T*.88,y+T*.05,T*.12,T*.9);
+    if(c){ctx.fillStyle='#ff9d57';ctx.fillRect(x+T*.08,y+T*.08,T*.84,T*.84);ctx.fillStyle='#7a4a1f';for(let i=1;i<4;i++)ctx.fillRect(x+T*(.08+i*.2),y+T*.08,T*.07,T*.84)}
+    if(w){ctx.strokeStyle='#e8384f';ctx.lineWidth=T*.08;ctx.strokeRect(x+T*.06,y+T*.06,T*.88,T*.88)}}
+  for(const m of L.movers){ctx.fillStyle='rgba(60,40,30,.18)';ctx.fillRect(m.x*T+T*.1,m.track[0]*T,T*.8,m.track.length*T)}
+  for(const m of L.movers){const x=m.x*T,y=m.ay*T;ctx.fillStyle='#6b7085';rr(x+T*.04,y+T*.02,T*.92,T*.94,T*.14);ctx.fill();
+    ctx.strokeStyle='#3a3f52';ctx.lineWidth=T*.06;ctx.stroke();ctx.fillStyle='#fff';ctx.fillRect(x+T*.2,y+T*.3,T*.2,T*.16);ctx.fillRect(x+T*.6,y+T*.3,T*.2,T*.16);
+    ctx.fillStyle='#2b2350';ctx.fillRect(x+T*.26,y+T*.33,T*.1,T*.12);ctx.fillRect(x+T*.64,y+T*.33,T*.1,T*.12);ctx.fillRect(x+T*.25,y+T*.66,T*.5,T*.08)}
+  // the tiger's face from the drawing
+  if(L.eyes){for(const e of L.eyes){const cx=e.x*T,cy=e.y*T-lift*.5,r=T*1.45;
+      ctx.fillStyle='#fff';ctx.strokeStyle='#2b2350';ctx.lineWidth=T*.12;ctx.beginPath();ctx.ellipse(cx,cy,r,r*1.1,0,0,7);ctx.fill();ctx.stroke();
+      const px=Math.max(-.45,Math.min(.45,(S.ax+.5-e.x)/6))*r,py=Math.max(-.45,Math.min(.45,(S.ay+.5-e.y)/6))*r;
+      ctx.fillStyle='#2b2350';ctx.beginPath();ctx.arc(cx+px,cy+py,r*.42,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx+px+r*.12,cy+py-r*.14,r*.12,0,7);ctx.fill();
+      ctx.lineCap='round';ctx.lineWidth=T*.08;for(let i=-1;i<=1;i++){const a=-Math.PI/2+i*.5;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r*1.05,cy+Math.sin(a)*r*1.1);ctx.lineTo(cx+Math.cos(a)*r*1.45,cy+Math.sin(a)*r*1.5);ctx.stroke()}}
+    const n=L.nose;ctx.fillStyle='#ff8fb1';ctx.strokeStyle='#2b2350';ctx.lineWidth=T*.08;ctx.beginPath();
+    ctx.moveTo(n.x*T+T*.15,n.y*T-lift*.5+T*.2);ctx.lineTo(n.x*T+T*1.85,n.y*T-lift*.5+T*.2);ctx.lineTo(n.x*T+T*1.45,n.y*T-lift*.5+T*1.8);ctx.lineTo(n.x*T+T*.55,n.y*T-lift*.5+T*1.8);ctx.closePath();ctx.fill();ctx.stroke()}
+  // doors
+  for(const[k,c]of L.doors){if(S.opened.has(c))continue;const[x,y]=k.split(',').map(Number);
+    ctx.fillStyle=KEY_COLORS[c];rr(x*T+T*.06,y*T-lift*.5,T*.88,T*1.02,T*.18);ctx.fill();
+    ctx.lineWidth=T*.07;ctx.strokeStyle='rgba(0,0,0,.3)';ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.beginPath();ctx.arc((x+.5)*T,(y+.38)*T,T*.1,0,7);ctx.fill();
+    ctx.fillRect((x+.5)*T-T*.045,(y+.38)*T,T*.09,T*.24)}
+  // painted floor arrows (from the drawing)
+  ctx.strokeStyle='rgba(47,158,68,.55)';ctx.lineWidth=T*.09;ctx.lineCap='round';ctx.lineJoin='round';
+  for(const a of L.arrows){const cx=(a.x+.5)*T,cy=(a.y+.5)*T,[dx,dy]=a.d,sh=Math.sin(now/250)*T*.06;
+    ctx.save();ctx.translate(cx+dx*sh,cy+dy*sh);ctx.rotate(Math.atan2(dy,dx));ctx.beginPath();
+    ctx.moveTo(-T*.1,-T*.2);ctx.lineTo(T*.12,0);ctx.lineTo(-T*.1,T*.2);ctx.moveTo(-T*.28,-T*.2);ctx.lineTo(-T*.06,0);ctx.lineTo(-T*.28,T*.2);ctx.stroke();ctx.restore()}
+  if(th.sky)for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(L.g[y][x]!=='v'&&L.g[y+1]&&L.g[y+1][x]==='v'){
+    ctx.fillStyle='rgba(60,110,170,.25)';ctx.fillRect(x*T,(y+1)*T,T,T*.25)}
+  // bounce pads
+  for(const[k,j]of L.pads){const[x,y]=k.split(',').map(Number);if(x<x0||x>=x1||y<y0||y>=y1)continue;
+    const cx=(x+.5)*T,cy=(y+.5)*T,big=j.n>5,sq=S.padHit&&S.padHit.k===k?Math.max(0,1-(now-S.padHit.t)/250):0;
+    ctx.fillStyle='#3b3f58';ctx.beginPath();ctx.ellipse(cx,cy+T*.12,T*.42,T*.2,0,0,7);ctx.fill();
+    ctx.fillStyle=big?`hsl(${(now/6)%360},90%,60%)`:'#ff4f6d';ctx.beginPath();ctx.ellipse(cx,cy-T*.02+sq*T*.12,T*(big?.44:.38),T*(.17-sq*.07),0,0,7);ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=T*.07;ctx.lineCap='round';ctx.lineJoin='round';const a=Math.atan2(j.d[1],j.d[0]);
+    ctx.save();ctx.translate(cx,cy-T*.3-Math.abs(Math.sin(now/220))*T*.08);ctx.rotate(a);ctx.beginPath();ctx.moveTo(-T*.08,-T*.12);ctx.lineTo(T*.08,0);ctx.lineTo(-T*.08,T*.12);
+    if(big){ctx.moveTo(-T*.24,-T*.12);ctx.lineTo(-T*.08,0);ctx.lineTo(-T*.24,T*.12)}ctx.stroke();ctx.restore()}
+  // conveyor belts
+  for(const[k,[dx,dy]]of L.conv){const[x,y]=k.split(',').map(Number);if(x<x0||x>=x1||y<y0||y>=y1)continue;
+    ctx.fillStyle='#5b5f73';ctx.fillRect(x*T+T*.06,y*T+T*.06,T*.88,T*.88);
+    ctx.save();ctx.beginPath();ctx.rect(x*T+T*.06,y*T+T*.06,T*.88,T*.88);ctx.clip();
+    ctx.translate((x+.5)*T,(y+.5)*T);ctx.rotate(Math.atan2(dy,dx));
+    const off=(now/6)%(T*.5);ctx.strokeStyle='#ffd23f';ctx.lineWidth=T*.1;ctx.lineCap='round';ctx.lineJoin='round';
+    for(let i=-2;i<=2;i++){const cx=i*T*.5+off-T*.25;ctx.beginPath();ctx.moveTo(cx-T*.1,-T*.2);ctx.lineTo(cx+T*.1,0);ctx.lineTo(cx-T*.1,T*.2);ctx.stroke()}
+    ctx.restore()}
+  // speed boost pads and numbered buttons
+  for(const[k,[dx,dy]]of L.boost){const[x,y]=k.split(',').map(Number);if(x<x0||x>=x1||y<y0||y>=y1)continue;
+    ctx.fillStyle='#ffc21a';rr(x*T+T*.05,y*T+T*.05,T*.9,T*.9,T*.18);ctx.fill();
+    ctx.save();ctx.translate((x+.5)*T,(y+.5)*T);ctx.rotate(Math.atan2(dy,dx));const o=((now/90)%3)*T*.06;
+    ctx.strokeStyle='#e8384f';ctx.lineWidth=T*.09;ctx.lineCap='round';ctx.lineJoin='round';
+    for(const sx of[-.22,0,.22]){ctx.beginPath();ctx.moveTo((sx-.08)*T+o,-T*.2);ctx.lineTo((sx+.08)*T+o,0);ctx.lineTo((sx-.08)*T+o,T*.2);ctx.stroke()}ctx.restore()}
+  for(const b of L.buttons){const cx=(b.x+.5)*T,cy=(b.y+.5)*T,on=b.n<=(S.seq||0);
+    ctx.fillStyle='#454b66';ctx.beginPath();ctx.ellipse(cx,cy+T*.08,T*.4,T*.3,0,0,7);ctx.fill();
+    ctx.fillStyle=on?'#3fd17a':'#ff7a1a';ctx.beginPath();ctx.ellipse(cx,cy-(on?0:T*.04),T*.34,T*.25,0,0,7);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font=`800 ${T*.42}px ${getComputedStyle(document.body).fontFamily}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(on?'✓':b.n,cx,cy-(on?0:T*.04))}
+  // compass trail of gold dots
+  if(now<(S.fx.compass||0)){const p=compassPath();
+    p.slice(1,60).forEach(([x,y],i)=>{const a=.5+.5*Math.sin(now/120-i*.6);ctx.fillStyle=`rgba(255,196,0,${.45+a*.5})`;ctx.beginPath();ctx.arc((x+.5)*T,(y+.5)*T,T*(.08+a*.05),0,7);ctx.fill()})}
+  // portals, candies, keys, power-ups, exit
+  for(const p of L.portalList)drawPortal((p.x+.5)*T,(p.y+.5)*T,T,PORTAL_COLORS[p.c],now);
+  for(const k of S.candies){const[x,y]=k.split(',').map(Number);emoji('🍭',(x+.5)*T,(y+.5)*T+Math.sin(now/250+x)*T*.05,T*.62)}
+  for(const q of L.keys)if(!S.gotKeys.has(q.c))drawKey((q.x+.5)*T,(q.y+.5)*T+Math.sin(now/220)*T*.06,T,KEY_COLORS[q.c]);
+  for(const it of L.items){if(it.got)continue;const cx=(it.x+.5)*T,cy=(it.y+.5)*T+Math.sin(now/260+it.x)*T*.06;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,T*.48);g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.7,'rgba(255,240,150,.55)');g.addColorStop(1,'rgba(255,240,150,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,T*.48,0,7);ctx.fill();emoji(ITEMS[it.t].e,cx,cy,T*.56)}
+  emoji(L.n===LAST_LEVEL?'👑':L.exitIcon,(L.exit.x+.5)*T,(L.exit.y+.5)*T,T*.78);
+  for(const f of L.flags)emoji(f.got?'🚩':'🏳️',(f.x+.6)*T,(f.y+.4)*T,T*.6);
+  for(const b of L.boats){const bx=((b.ax??b.x)+.5)*T,by=(b.y+.5)*T;
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.ellipse(bx-b.dir*T*.35,by+T*.22,T*.3,T*.08,0,0,7);ctx.fill();
+    ctx.save();ctx.translate(bx,by+Math.sin(now/200+b.i)*T*.05);if(b.dir>0)ctx.scale(-1,1);emoji('🚤',0,0,T*.9);ctx.restore()}
+  // critters
+  for(const gh of L.ghosts){const napping=gh.nap&&now<gh.nap;const gx=((gh.ax??gh.x)+.5)*T,gy=((gh.ay??gh.y)+.5)*T;
+    if(frozen){ctx.fillStyle='rgba(150,210,255,.55)';rr(gx-T*.4,gy-T*.4,T*.8,T*.8,T*.15);ctx.fill()}
+    emoji(L.theme.baddie,gx,gy+(napping||frozen?0:Math.sin(now/150+gh.phase*6)*T*.07),T*.74,napping?.45:1);
+    if(napping)emoji('💤',gx+T*.32,gy-T*.36-Math.sin(now/300)*T*.06,T*.36)}
+  // dinos
+  for(const c of S.chasers){const gx=(c.ax+.5)*T,gy=(c.ay+.5)*T,sleeping=S.clock<c.wake;
+    if(!sleeping&&!frozen){ctx.fillStyle=`rgba(255,60,60,${.18+pul*.18})`;ctx.beginPath();ctx.arc(gx,gy,T*.55,0,7);ctx.fill()}
+    if(frozen){ctx.fillStyle='rgba(150,210,255,.6)';rr(gx-T*.45,gy-T*.45,T*.9,T*.9,T*.15);ctx.fill()}
+    ctx.save();ctx.translate(gx,gy);if(c.x>(c.fx??c.x)||S.x>c.x)ctx.scale(-1,1);emoji('🦖',0,sleeping?0:-Math.abs(Math.sin(now/110))*T*.08,T*.95,sleeping?.7:1);ctx.restore();
+    if(sleeping)emoji('💤',gx+T*.35,gy-T*.4,T*.36)}
+  // hero
+  const hop=S.anim&&!S.anim.fall?Math.sin(Math.min(1,(now-S.anim.t0)/S.anim.dur)*Math.PI)*T*(S.anim.jump?.6+S.anim.jump*.22:.16):0;
+  let bx=0,by=0;const bt=now-S.bump;if(bt<160){const s=Math.sin(bt/160*Math.PI)*T*.12;bx=S.bumpDir[0]*s;by=S.bumpDir[1]*s}
+  const blink=now<S.inv&&Math.floor(now/90)%2;
+  const hx=(S.ax+.5)*T,hy=(S.ay+.5)*T;
+  ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(hx,(S.ay+.82)*T,T*.28,T*.09,0,0,7);ctx.fill();
+  if(!blink)drawHeroAt(ctx,hx+bx,hy-hop+by+T*.42+hop*.3,T*1.3,now,!!S.anim||S.run!=null,S.face);
+  if(L.canJump&&!S.anim){const[dx,dy]=S.dir||[S.face||1,0],pop=S.turned&&now-S.turned<300?1.4:1,b=Math.sin(now/200)*T*.04;
+    ctx.save();ctx.translate(hx+dx*T*(.62+b/T),hy-T*.1+dy*T*.62);ctx.rotate(Math.atan2(dy,dx));ctx.scale(pop,pop);
+    ctx.fillStyle='#ffc21a';ctx.strokeStyle='#2b2350';ctx.lineWidth=T*.04;ctx.beginPath();ctx.moveTo(T*.16,0);ctx.lineTo(-T*.08,-T*.14);ctx.lineTo(-T*.08,T*.14);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
+  if(now<(S.fx.shield||0)){ctx.strokeStyle=`rgba(80,180,255,${.5+pul*.4})`;ctx.lineWidth=T*.08;ctx.beginPath();ctx.arc(hx,hy-T*.15,T*.62,0,7);ctx.stroke();
+    ctx.fillStyle='rgba(120,200,255,.15)';ctx.fill()}
+  // night fog
+  if(L.fog){const R=(L.fog+(S.lantern?3:0))*T;
+    const fg=ctx.createRadialGradient(hx,hy,R*.45,hx,hy,R);fg.addColorStop(0,'rgba(8,6,24,0)');fg.addColorStop(1,'rgba(8,6,24,.96)');
+    ctx.fillStyle=fg;ctx.fillRect(-S.camX,-S.camY,VW,VH);
+    emoji('✨',(L.exit.x+.5)*T,(L.exit.y+.5)*T,T*(.6+pul*.2),.9);
+    for(const c of S.chasers)if(S.clock>=c.wake)emoji('👀',(c.ax+.5)*T,(c.ay+.5)*T,T*.5,.8)}
+}
+
+function drawPreview(cnv,now){const d=Math.min(2,devicePixelRatio||1),c=cnv.getContext('2d');if(cnv.width!==110*d){cnv.width=110*d;cnv.height=150*d}
+  c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,110,150);
+  drawHeroAt(c,55,146-Math.abs(Math.sin(now/350))*6,124,now,false,0)}
+
+// ---------- 3D world ----------
+// The game logic is the same as the 2D version; this part draws L (the level) and S (the play state) as a 3D scene.
+// One tile is one world unit: tile (x,y) sits at world (x+.5, 0, y+.5).
+const R3={zoom:1};
+const W3=(x,y)=>[x+.5,y+.5];
+function init3d(){
+  const r=new THREE.WebGLRenderer({antialias:true});
+  r.setPixelRatio(Math.min(2,devicePixelRatio||1));
+  r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;
+  r.domElement.id='gl';$('#board').insertBefore(r.domElement,$('#board').firstChild);
+  R3.r=r;R3.scene=new THREE.Scene();R3.cam=new THREE.PerspectiveCamera(42,1,.1,400);
+  R3.hemi=new THREE.HemisphereLight(0xffffff,0x8a8070,.55);R3.scene.add(R3.hemi);
+  R3.sun=new THREE.DirectionalLight(0xffffff,.5);R3.sun.castShadow=true;R3.sun.shadow.mapSize.set(2048,2048);
+  const sc=R3.sun.shadow.camera;sc.left=-16;sc.right=16;sc.top=16;sc.bottom=-16;sc.near=1;sc.far=60;sc.updateProjectionMatrix();
+  R3.sun.shadow.bias=-.0015;R3.scene.add(R3.sun,R3.sun.target);
+  R3.heroLight=new THREE.PointLight(0xffeecc,0,10);R3.scene.add(R3.heroLight);
+  $('#board').addEventListener('wheel',e=>{e.preventDefault();R3.zoom=Math.max(.55,Math.min(1.8,R3.zoom*(e.deltaY>0?1.08:.93)))},{passive:false});
+  resize()}
+
+// textures: emoji sprites, belt chevrons, portal swirls
+const texCache=new Map();
+function canvasTex(key,draw,size=128){if(texCache.has(key))return texCache.get(key);
+  const c=document.createElement('canvas');c.width=c.height=size;draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);texCache.set(key,t);return t}
+const emojiTex=e=>canvasTex('e'+e,(g,s)=>{g.font=`${s*.78}px ${EMOJI}`;g.textAlign='center';g.textBaseline='middle';g.fillText(e,s/2,s*.56)});
+function sprite(e,size,opts={}){const m=new THREE.Sprite(new THREE.SpriteMaterial({map:emojiTex(e),transparent:true,depthWrite:false,fog:opts.fog!==false}));
+  m.scale.set(size,size,1);return m}
+const beltTex=()=>{const t=canvasTex('belt',(g,s)=>{g.fillStyle='#5b5f73';g.fillRect(0,0,s,s);g.strokeStyle='#ffd23f';g.lineWidth=s*.1;g.lineCap='round';g.lineJoin='round';
+  for(let i=0;i<2;i++){const x=s*(.3+i*.5);g.beginPath();g.moveTo(x-s*.12,s*.25);g.lineTo(x+s*.08,s*.5);g.lineTo(x-s*.12,s*.75);g.stroke()}});t.wrapS=THREE.RepeatWrapping;return t};
+const arrowTex=()=>canvasTex('arrow',(g,s)=>{g.strokeStyle='rgba(47,158,68,.75)';g.lineWidth=s*.09;g.lineCap='round';g.lineJoin='round';
+  for(const x of[.35,.6]){g.beginPath();g.moveTo(s*(x-.12),s*.28);g.lineTo(s*(x+.08),s*.5);g.lineTo(s*(x-.12),s*.72);g.stroke()}});
+const swirlTex=col=>canvasTex('sw'+col,(g,s)=>{const gr=g.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);gr.addColorStop(0,'#fff');gr.addColorStop(.55,col);gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=gr;g.fillRect(0,0,s,s);g.strokeStyle='#fff';g.lineWidth=s*.06;g.lineCap='round';g.beginPath();
+  for(let a=0;a<12;a+=.2){const r=s*.02+a*s*.032,x=s/2+Math.cos(a)*r,y=s/2+Math.sin(a)*r;a?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()});
+const mat=(color,o={})=>new THREE.MeshStandardMaterial(Object.assign({color,roughness:.75,metalness:0},o));
+
+// Zig the Bunny in 3D, built from the hand-drawn hero: big eye + small eye, toothy grin, zigzag arms, block legs
+function buildZig(){
+  const z=new THREE.Group(),cream=mat('#fffaf3'),ink=mat('#2b2350'),orange=mat('#ff9f43'),blue=mat('#4a6cf7'),pink=mat('#ffb3c7');
+  const add=(geo,m,x,y,zz,parent=z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,zz);o.castShadow=true;parent.add(o);return o};
+  z.legL=new THREE.Group();z.legR=new THREE.Group();z.legL.position.set(-.08,.26,0);z.legR.position.set(.08,.26,0);z.add(z.legL,z.legR);
+  for(const leg of[z.legL,z.legR]){add(new THREE.BoxGeometry(.11,.24,.11),blue,0,-.12,0,leg);add(new THREE.BoxGeometry(.15,.07,.19),ink,0,-.235,.03,leg)}
+  add(new THREE.BoxGeometry(.38,.34,.26),orange,0,.43,0);
+  add(new THREE.BoxGeometry(.39,.05,.27),mat('#ffffff'),0,.45,0);
+  z.armL=new THREE.Group();z.armR=new THREE.Group();z.armL.position.set(-.2,.52,0);z.armR.position.set(.2,.52,0);z.add(z.armL,z.armR);
+  for(const[arm,s]of[[z.armL,-1],[z.armR,1]]){
+    const a=add(new THREE.CylinderGeometry(.04,.04,.16,8),orange,s*.07,-.02,0,arm);a.rotation.z=s*1.2;
+    const b=add(new THREE.CylinderGeometry(.04,.04,.14,8),orange,s*.15,.06,0,arm);b.rotation.z=-s*.5;
+    add(new THREE.SphereGeometry(.055,12,10),cream,s*.21,.12,0,arm)}
+  const head=add(new THREE.SphereGeometry(.25,24,18),cream,0,.82,0);head.scale.set(1,1,.92);
+  z.earL=new THREE.Group();z.earR=new THREE.Group();z.earL.position.set(-.1,1.0,0);z.earR.position.set(.11,1.0,0);z.add(z.earL,z.earR);
+  for(const[ear,tilt]of[[z.earL,.3],[z.earR,-.55]]){ear.rotation.z=tilt;
+    const e=add(new THREE.SphereGeometry(.07,14,10),cream,0,.2,0,ear);e.scale.set(1,3.3,.8);
+    const p=add(new THREE.SphereGeometry(.035,12,8),pink,0,.2,.045,ear);p.scale.set(1,4.4,.5)}
+  const eye=(x,y,r)=>{add(new THREE.SphereGeometry(r,14,10),mat('#ffffff'),x,y,.2);add(new THREE.SphereGeometry(r*.48,10,8),ink,x+.01,y-.005,.2+r*.75)};
+  eye(-.09,.89,.07);eye(.1,.86,.052);
+  for(const x of[-.16,.16])add(new THREE.SphereGeometry(.04,10,8),mat('#ff7a8f'),x,.76,.19).scale.set(1,1,.4);
+  const mouth=add(new THREE.CylinderGeometry(.1,.1,.03,20,1,false,0,Math.PI),mat('#a8324a'),0,.72,.215);mouth.rotation.set(Math.PI/2,0,Math.PI/2);
+  for(const x of[-.05,0,.05])add(new THREE.BoxGeometry(.035,.035,.02),mat('#ffffff'),x,.71,.235);
+  z.headTop=1.13;return z}
+
+function buildHero(){
+  if(R3.hero)R3.scene.remove(R3.hero);
+  const g=new THREE.Group();
+  if(hero==='zig'){g.model=buildZig();g.add(g.model)}else{g.face=sprite(hero,.9);g.face.position.y=.48;g.add(g.face);g.headTop=.95}
+  const top=hero==='zig'?1.13:.95,it=wear.head&&shopItem(wear.head);
+  if(it){const h=sprite(it.e,it.slot==='face'?.32:.38);h.position.set(0,it.slot==='face'?(hero==='zig'?.87:.55):top+.05,hero==='zig'&&it.slot==='face'?.26:.02);g.add(h)}
+  const sh=new THREE.Mesh(new THREE.SphereGeometry(.62,24,18),new THREE.MeshStandardMaterial({color:'#5ab4ff',transparent:true,opacity:.25,depthWrite:false}));
+  sh.position.y=.5;sh.visible=false;g.add(sh);g.shield=sh;
+  R3.hero=g;R3.scene.add(g)}
+
+function build3d(){
+  if(!R3.r)init3d();
+  if(R3.level){R3.scene.remove(R3.level);R3.level.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
+  const G=new THREE.Group(),th=L.theme;R3.level=G;R3.scene.add(G);
+  R3.scene.background=new THREE.Color(th.bg);
+  const floors=[],walls=[];
+  for(let y=0;y<L.H;y++)for(let x=0;x<L.W;x++){const v=L.g[y][x];if(v==='v')continue;if(v==='#')walls.push([x,y]);else floors.push([x,y])}
+  const m4=new THREE.Matrix4(),col=new THREE.Color();
+  // floor tiles: checkerboard, blue for water, purple tint in the mystery room
+  const fl=new THREE.InstancedMesh(new THREE.BoxGeometry(1,.2,1),mat('#ffffff'),floors.length);fl.receiveShadow=true;
+  floors.forEach(([x,y],i)=>{const k=kk(x,y);m4.makeTranslation(x+.5,L.water.has(k)?-.16:-.1,y+.5);fl.setMatrixAt(i,m4);
+    col.set(L.water.has(k)?((x+y)%2?'#5ec3ff':'#4bb5f5'):L.mystery.has(k)||L.g[y][x]==='i'?((x+y)%2?'#e9ddff':'#dfd0ff'):((x+y)%2?th.floorA:th.floorB));fl.setColorAt(i,col)});
+  G.add(fl);
+  // walls with a lighter cap; rainbow walls get a colour per tile
+  const wm=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),mat('#ffffff'),walls.length),cap=new THREE.InstancedMesh(new THREE.BoxGeometry(1.001,.08,1.001),mat('#ffffff'),walls.length);
+  wm.castShadow=wm.receiveShadow=true;cap.receiveShadow=true;
+  walls.forEach(([x,y],i)=>{const[c,top]=wallColors(x,y);m4.makeTranslation(x+.5,.5,y+.5);wm.setMatrixAt(i,m4);wm.setColorAt(i,col.set(c));
+    m4.makeTranslation(x+.5,1.03,y+.5);cap.setMatrixAt(i,m4);cap.setColorAt(i,col.set(top||c))});
+  G.add(wm,cap);
+  // tiles that can change: cracked walls, secret doors, fake low walls
+  R3.tiles=new Map();
+  for(let y=0;y<L.H;y++)for(let x=0;x<L.W;x++){const v=L.g[y][x];if(!'xzls'.includes(v))continue;const[cx,cz]=W3(x,y);let o;
+    if(v==='l'){o=new THREE.Mesh(new THREE.BoxGeometry(.9,.42,.9),mat('#c27a3a'));o.position.set(cx,.21,cz)}
+    else{o=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat(v==='x'?'#c9a46e':wallColors(x,y)[0]));o.position.set(cx,.5,cz);
+      if(v==='x')for(let i=0;i<3;i++){const c=new THREE.Mesh(new THREE.BoxGeometry(.05,.5,.02),mat('#5c4426'));c.position.set(-.2+i*.2,(i%2?.1:-.05),.51);c.rotation.z=.5-i*.4;o.add(c)}}
+    o.castShadow=true;G.add(o);R3.tiles.set(kk(x,y),{o,v})}
+  R3.revealed=new Set();
+  // decorations on wall tops
+  walls.forEach(([x,y])=>{if(th.decor&&hash(x,y)%13===0&&x>0&&y>0&&x<L.W-1&&y<L.H-1){const s=sprite(th.decor,.5);s.position.set(x+.5,1.35,y+.5);G.add(s)}});
+  if(th.sky)for(let i=0;i<40;i++){const s=sprite('☁️',2+Math.random()*2);s.position.set(Math.random()*L.W,-2-Math.random()*3,Math.random()*L.H);G.add(s)}
+  // start pad and the exit
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.03,24),mat('#ffffff',{transparent:true,opacity:.7}));pad.position.set(...[L.start.x+.5,.01,L.start.y+.5]);G.add(pad);
+  R3.exit=sprite(L.n===LAST_LEVEL?'👑':L.exitIcon,.95,{fog:false});R3.exit.position.set(L.exit.x+.5,.6,L.exit.y+.5);G.add(R3.exit);
+  R3.exitRing=new THREE.Mesh(new THREE.TorusGeometry(.42,.05,10,32),mat('#ffd23f',{emissive:'#ffb000',emissiveIntensity:.6}));R3.exitRing.rotation.x=-Math.PI/2;R3.exitRing.position.set(L.exit.x+.5,.05,L.exit.y+.5);G.add(R3.exitRing);
+  // candies, keys, doors, items, flags
+  R3.candies=new Map();for(const k of L.candies){const[x,y]=k.split(',').map(Number);const s=sprite('🍭',.55);s.position.set(x+.5,.45,y+.5);G.add(s);R3.candies.set(k,s)}
+  R3.keys=L.keys.map(q=>{const g=new THREE.Group(),m=mat(KEY_COLORS[q.c],{metalness:.4,roughness:.35,emissive:KEY_COLORS[q.c],emissiveIntensity:.25});
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.12,.04,10,20),m);ring.position.x=-.14;const sh=new THREE.Mesh(new THREE.BoxGeometry(.3,.06,.06),m);sh.position.x=.08;
+    const t1=new THREE.Mesh(new THREE.BoxGeometry(.05,.1,.05),m);t1.position.set(.18,-.06,0);g.add(ring,sh,t1);g.position.set(q.x+.5,.45,q.y+.5);g.traverse(o=>o.castShadow=true);G.add(g);return{q,g}});
+  R3.doors=[...L.doors].map(([k,c])=>{const[x,y]=k.split(',').map(Number);const d=new THREE.Mesh(new THREE.BoxGeometry(.92,1.05,.92),mat(KEY_COLORS[c],{roughness:.4}));d.position.set(x+.5,.52,y+.5);d.castShadow=true;
+    const hole=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,.94,12),mat('#2b2350'));hole.rotation.x=Math.PI/2;hole.position.y=.1;d.add(hole);G.add(d);return{c,d}});
+  R3.items=L.items.map(it=>{const g=new THREE.Group(),b=new THREE.Mesh(new THREE.SphereGeometry(.3,16,12),new THREE.MeshStandardMaterial({color:'#fff4a8',transparent:true,opacity:.35,emissive:'#fff0a0',emissiveIntensity:.4,depthWrite:false}));
+    const s=sprite(ITEMS[it.t].e,.5);g.add(b,s);g.position.set(it.x+.5,.45,it.y+.5);G.add(g);return{it,g}});
+  R3.flags=L.flags.map(f=>{const s=sprite('🏳️',.6);s.position.set(f.x+.6,.55,f.y+.5);G.add(s);return{f,s}});
+  // portals
+  R3.portals=L.portalList.map(p=>{const g=new THREE.Group(),disc=new THREE.Mesh(new THREE.CircleGeometry(.45,32),new THREE.MeshBasicMaterial({map:swirlTex(PORTAL_COLORS[p.c]),transparent:true}));
+    disc.rotation.x=-Math.PI/2;disc.position.y=.03;const ring=new THREE.Mesh(new THREE.TorusGeometry(.42,.05,10,32),mat(PORTAL_COLORS[p.c],{emissive:PORTAL_COLORS[p.c],emissiveIntensity:.5}));ring.rotation.x=-Math.PI/2;ring.position.y=.06;
+    g.add(disc,ring);g.position.set(p.x+.5,0,p.y+.5);G.add(g);return{disc,g}});
+  // spikes: four cones per tile that rise and sink
+  R3.spikes=L.spikes.map(sp=>{const g=new THREE.Group(),m=mat(sp.always?'#4f7dff':'#dfe5f2',{metalness:.5,roughness:.3});
+    for(const[ox,oz]of[[-.2,-.2],[.2,-.2],[-.2,.2],[.2,.2]]){const c=new THREE.Mesh(new THREE.ConeGeometry(.12,.45,10),m);c.position.set(ox,.22,oz);c.castShadow=true;g.add(c)}
+    const base=new THREE.Mesh(new THREE.BoxGeometry(.9,.04,.9),mat('#6b7085'));base.position.y=.02;G.add(base);base.position.x=sp.x+.5;base.position.z=sp.y+.5;
+    g.position.set(sp.x+.5,0,sp.y+.5);G.add(g);return{sp,g}});
+  // painted arrows, conveyor belts, bounce pads
+  for(const a of L.arrows){const p=new THREE.Mesh(new THREE.PlaneGeometry(.9,.9),new THREE.MeshBasicMaterial({map:arrowTex(),transparent:true,depthWrite:false}));
+    p.rotation.set(-Math.PI/2,0,-Math.atan2(a.d[1],a.d[0]));p.position.set(a.x+.5,.02,a.y+.5);G.add(p)}
+  R3.beltTex=beltTex();
+  for(const[k,[dx,dy]]of L.conv){const[x,y]=k.split(',').map(Number);const p=new THREE.Mesh(new THREE.PlaneGeometry(.92,.92),new THREE.MeshBasicMaterial({map:R3.beltTex}));
+    p.rotation.set(-Math.PI/2,0,-Math.atan2(dy,dx));p.position.set(x+.5,.015,y+.5);G.add(p)}
+  R3.pads=[...L.pads].map(([k,j])=>{const[x,y]=k.split(',').map(Number);const g=new THREE.Group();
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(.42,.45,.12,24),mat('#3b3f58'));base.position.y=.06;
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.06,24),mat(j.n>5?'#ff4fd8':'#ff4f6d',{roughness:.3}));top.position.y=.15;
+    const ar=sprite('⏩',.4);ar.position.y=.55;g.add(base,top,ar);g.position.set(x+.5,0,y+.5);G.add(g);return{k,j,top,g}});
+  // speed boost pads and numbered buttons
+  R3.boostTex=canvasTex('boost',(g,s)=>{g.fillStyle='#ffc21a';g.fillRect(0,0,s,s);g.strokeStyle='#e8384f';g.lineWidth=s*.09;g.lineCap='round';g.lineJoin='round';
+    for(const x of[.2,.5,.8]){g.beginPath();g.moveTo(s*(x-.08),s*.28);g.lineTo(s*(x+.08),s*.5);g.lineTo(s*(x-.08),s*.72);g.stroke()}});R3.boostTex.wrapS=THREE.RepeatWrapping;
+  for(const[k,[dx,dy]]of L.boost){const[x,y]=k.split(',').map(Number);const p=new THREE.Mesh(new THREE.PlaneGeometry(.92,.92),new THREE.MeshBasicMaterial({map:R3.boostTex}));
+    p.rotation.set(-Math.PI/2,0,-Math.atan2(dy,dx));p.position.set(x+.5,.016,y+.5);G.add(p)}
+  R3.buttons=L.buttons.map(b=>{const g=new THREE.Group(),base=new THREE.Mesh(new THREE.CylinderGeometry(.42,.45,.08,24),mat('#454b66'));base.position.y=.04;
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,.1,24),mat('#ff7a1a',{emissive:'#000000'}));top.position.y=.12;
+    const num=sprite(['1️⃣','2️⃣','3️⃣','4️⃣'][b.n-1],.5);num.position.y=.6;g.add(base,top,num);g.position.set(b.x+.5,0,b.y+.5);G.add(g);return{b,top}});
+  // doors that close in, walls that move up and down
+  R3.gates=L.gates.map(gt=>{const g=new THREE.Group(),post=mat('#7a4a1f');
+    for(const s of[-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(.1,1,.9),post);p.position.set(s*.45,.5,0);g.add(p)}
+    const bars=new THREE.Group();for(let i=0;i<4;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(.07,.95,.07),mat('#ff9d57',{metalness:.4}));b.position.set(-.3+i*.2,.48,0);bars.add(b)}
+    g.add(bars);g.position.set(gt.x+.5,0,gt.y+.5);G.add(g);return{gt,bars}});
+  R3.movers=L.movers.map(m=>{const b=new THREE.Mesh(new THREE.BoxGeometry(.9,.95,.9),mat('#6b7085'));b.castShadow=true;
+    for(const s of[-1,1]){const e=new THREE.Mesh(new THREE.BoxGeometry(.16,.12,.02),mat('#ffffff'));e.position.set(s*.2,.15,.46);b.add(e);
+      const p=new THREE.Mesh(new THREE.BoxGeometry(.07,.08,.02),mat('#2b2350'));p.position.set(s*.2,.14,.47);b.add(p)}
+    const mo=new THREE.Mesh(new THREE.BoxGeometry(.45,.06,.02),mat('#2b2350'));mo.position.set(0,-.15,.46);b.add(mo);
+    const track=new THREE.Mesh(new THREE.PlaneGeometry(.85,m.track.length),new THREE.MeshBasicMaterial({color:'#3c2b20',transparent:true,opacity:.18}));
+    track.rotation.x=-Math.PI/2;track.position.set(m.x+.5,.012,m.track[0]+m.track.length/2);G.add(track,b);return{m,b}});
+  // critters, dinos, boats
+  R3.ghosts=L.ghosts.map(gh=>{const s=sprite(th.baddie,.75),z=sprite('💤',.35);G.add(s,z);return{gh,s,z}});
+  R3.chasers=S.chasers.map(c=>{const s=sprite('🦖',1.1),z=sprite('💤',.4),glow=new THREE.Mesh(new THREE.CircleGeometry(.55,24),new THREE.MeshBasicMaterial({color:'#ff3c3c',transparent:true,opacity:.3,depthWrite:false}));
+    glow.rotation.x=-Math.PI/2;G.add(s,z,glow);return{c,s,z,glow}});
+  R3.boats=L.boats.map(b=>{const s=sprite('🚤',.95);G.add(s);return{b,s}});
+  // the tiger's face on level 6
+  R3.eyes=[];if(L.eyes){for(const e of L.eyes){const ball=new THREE.Mesh(new THREE.SphereGeometry(1.35,24,18),mat('#ffffff',{roughness:.3}));ball.position.set(e.x,1.1,e.y);ball.scale.set(1,.75,1);
+      const pupil=new THREE.Mesh(new THREE.SphereGeometry(.55,18,14),mat('#2b2350'));ball.add(pupil);G.add(ball);R3.eyes.push({e,pupil})}
+    const nose=new THREE.Mesh(new THREE.BoxGeometry(1.9,1.2,1.9),mat('#ff8fb1',{roughness:.4}));nose.position.set(L.nose.x+1,.62,L.nose.y+1);G.add(nose)}
+  // compass dots
+  R3.dots=[];for(let i=0;i<60;i++){const d=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),mat('#ffc400',{emissive:'#ffb000',emissiveIntensity:.6}));d.visible=false;G.add(d);R3.dots.push(d)}
+  // night mazes: dark fog, Zig carries a light
+  if(L.fog){R3.scene.fog=new THREE.Fog('#0c0a1e',1,10);R3.scene.background=new THREE.Color('#0c0a1e')}else R3.scene.fog=null;
+  R3.exitSparkle=sprite('✨',.8,{fog:false});R3.exitSparkle.position.set(L.exit.x+.5,1.3,L.exit.y+.5);R3.exitSparkle.visible=!!L.fog;G.add(R3.exitSparkle);
+  buildHero();R3.camPos=null}
+
+function draw3d(now){
+  if(!R3.r||!R3.level)return;
+  const frozen=now<(S.fx.freeze||0),pul=.5+.5*Math.sin(now/300);
+  // tiles that changed: smashed cracks, opened secret doors, revealed invisible walls
+  for(const[k,t]of R3.tiles){const[x,y]=k.split(',').map(Number);if(L.g[y][x]!==t.v&&t.o.parent)R3.level.remove(t.o)}
+  for(const k of L.revealed)if(!R3.revealed.has(k)){R3.revealed.add(k);const[x,y]=k.split(',').map(Number);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(.95,.95,.95),new THREE.MeshStandardMaterial({color:'#9b5cff',transparent:true,opacity:.45}));b.position.set(x+.5,.48,y+.5);R3.level.add(b);
+    const g=sprite('👻',.4);g.position.set(x+.5,1.15,y+.5);R3.level.add(g)}
+  R3.exit.position.y=.62+Math.sin(now/350)*.06;R3.exitRing.scale.setScalar(1+pul*.15);
+  for(const[k,s]of R3.candies){s.visible=S.candies.has(k);s.position.y=.45+Math.sin(now/250+s.position.x)*.05}
+  for(const{q,g}of R3.keys){g.visible=!S.gotKeys.has(q.c);g.rotation.y=now/600;g.position.y=.45+Math.sin(now/220)*.06}
+  for(const{c,d}of R3.doors)d.visible=!S.opened.has(c);
+  for(const{it,g}of R3.items){g.visible=!it.got;g.position.y=.45+Math.sin(now/260+it.x)*.06}
+  for(const{f,s}of R3.flags)if(f.got&&!s.got){s.got=true;s.material.map=emojiTex('🚩')}
+  for(const{disc}of R3.portals)disc.rotation.z=now/400;
+  for(const{sp,g}of R3.spikes){const st=frozen?'down':spikeState(sp,now);g.position.y=st==='up'?0:st==='warn'?-.32+Math.abs(Math.sin(now/45))*.06:-.44}
+  R3.beltTex.offset.x=-(now/600)%1;
+  for(const p of R3.pads){const hit=S.padHit&&S.padHit.k===p.k?Math.max(0,1-(now-S.padHit.t)/250):0;p.top.position.y=.15-hit*.08;p.top.scale.y=1-hit*.6;
+    if(p.j.n>5)p.top.material.color.setHSL((now/2000)%1,.85,.6)}
+  for(const{gt,bars}of R3.gates){const c=!frozen&&gateClosed(gt,now);bars.position.y=c?0:-.9;
+    const w=!c&&gateWarn(gt,now)&&Math.floor(now/120)%2;bars.children.forEach(b=>b.material.emissive&&b.material.emissive.set(w?'#ff2030':'#000000'));if(w){bars.position.y=-.6}}
+  for(const{b,top}of R3.buttons){const on=b.n<=(S.seq||0);top.material.color.set(on?'#3fd17a':'#ff7a1a');top.position.y=on?.07:.12}
+  R3.boostTex.offset.x=-(now/250)%1;
+  for(const{m,b}of R3.movers)b.position.set(m.x+.5,.48,m.ay+.5);
+  for(const{gh,s,z}of R3.ghosts){const nap=gh.nap&&now<gh.nap;const x=(gh.ax??gh.x)+.5,y=(gh.ay??gh.y)+.5;
+    s.position.set(x,.5+(nap||frozen?0:Math.abs(Math.sin(now/150+gh.phase*6))*.12),y);s.material.opacity=nap?.5:1;s.material.color.set(frozen?'#9fd4ff':'#ffffff');
+    z.visible=!!nap;z.position.set(x+.3,1.0+Math.sin(now/300)*.06,y)}
+  for(const{c,s,z,glow}of R3.chasers){const x=c.ax+.5,y=c.ay+.5,sl=S.clock<c.wake;s.position.set(x,.6+(sl?0:Math.abs(Math.sin(now/110))*.1),y);
+    s.material.color.set(frozen?'#9fd4ff':'#ffffff');z.visible=sl;z.position.set(x+.4,1.3,y);glow.visible=!sl&&!frozen;glow.position.set(x,.02,y);glow.material.opacity=.2+pul*.2}
+  for(const{b,s}of R3.boats){s.position.set((b.ax??b.x)+.5,.38+Math.sin(now/200+b.i)*.04,b.y+.5)}
+  for(const{e,pupil}of R3.eyes){const dx=Math.max(-.6,Math.min(.6,(S.ax+.5-e.x)/5)),dy=Math.max(-.6,Math.min(.6,(S.ay+.5-e.y)/5));pupil.position.set(dx,.55,1.05+dy*.2)}
+  // compass dots
+  const showDots=now<(S.fx.compass||0),path=showDots?compassPath():[];
+  R3.dots.forEach((d,i)=>{const p=path[i+1];d.visible=!!p;if(p){d.position.set(p[0]+.5,.18+Math.abs(Math.sin(now/180-i*.5))*.12,p[1]+.5)}});
+  // the hero
+  const h=R3.hero,a=S.anim,t=a?Math.min(1,(now-a.t0)/a.dur):0;
+  const hop=a&&!a.fall?Math.sin(t*Math.PI)*(a.jump?.55+a.jump*.2:.12):0;
+  let bx=0,bz=0;const bt=now-S.bump;if(bt<160&&S.bumpDir){const s=Math.sin(bt/160*Math.PI)*.12;bx=S.bumpDir[0]*s;bz=S.bumpDir[1]*s}
+  h.position.set(S.ax+.5+bx,hop,S.ay+.5+bz);h.visible=!(now<S.inv&&Math.floor(now/90)%2);
+  const d=S.dir||[S.face||1,0],want=Math.atan2(d[0],d[1]);let cur=h.rotation.y,diff=((want-cur+Math.PI*3)%(Math.PI*2))-Math.PI;h.rotation.y=cur+diff*.25;
+  if(h.model){const walk=!!a&&!a.fall,sw=walk?Math.sin(now/45)*.6:0,wv=Math.sin(now/260)*.25;
+    h.model.legL.rotation.x=sw;h.model.legR.rotation.x=-sw;h.model.armL.rotation.z=walk?sw*.3:wv*.3;h.model.armR.rotation.z=walk?-sw*.3:-wv;
+    h.model.earL.rotation.z=.3+Math.sin(now/330)*.08;h.model.earR.rotation.z=-.55-Math.sin(now/330)*.08;h.model.position.y=walk?0:Math.abs(Math.sin(now/400))*.02}
+  h.shield.visible=now<(S.fx.shield||0);h.shield.material.opacity=.18+pul*.15;
+  // camera: tilted view that follows the hero (looks further ahead while falling)
+  const asp=R3.cam.aspect||1,look=L.fall?3.5:0,z=R3.zoom*(L.fall?1.1:1)*(asp<1?Math.min(1.7,1/Math.sqrt(asp)):1),tx=S.ax+.5,tz=S.ay+.5+look;
+  const want3=new THREE.Vector3(tx,10.5*z,tz+7.5*z);
+  if(!R3.camPos||R3.camPos.distanceTo(want3)>30)R3.camPos=want3.clone();R3.camPos.lerp(want3,L.fall?.25:.12);
+  R3.cam.position.copy(R3.camPos);R3.cam.lookAt(R3.camPos.x,0,R3.camPos.z-7.5*z);
+  R3.sun.position.set(tx+6,16,tz+9);R3.sun.target.position.set(tx,0,tz);
+  if(L.fog){const r=L.fog+(S.lantern?3:0),dist=R3.cam.position.distanceTo(new THREE.Vector3(tx,0,tz-look));
+    R3.scene.fog.near=dist-r*.5;R3.scene.fog.far=dist+r*.9;R3.hemi.intensity=.35;R3.sun.intensity=.25;R3.heroLight.intensity=1.3;R3.heroLight.distance=r*2;R3.heroLight.position.set(tx,1.6,S.ay+.5);
+    R3.exitSparkle.position.y=1.3+pul*.15}
+  else{R3.hemi.intensity=L.theme.dark?.5:.55;R3.sun.intensity=L.theme.dark?.4:.5;R3.heroLight.intensity=L.theme.dark?.6:0;R3.heroLight.position.set(tx,1.6,S.ay+.5)}
+  R3.r.render(R3.scene,R3.cam)}
+
+// ---------- flat map of the whole maze (tap 👀 Map, or press M) ----------
+let mapOpen=false;
+function hideMap(){mapOpen=false;$('#mapView').hidden=true}
+function toggleMap(){
+  if(!S||!L||S.won||S.dead)return;
+  if(mapOpen){const gap=performance.now()-S.mapAt;for(const k in S.fx)S.fx[k]+=gap;hideMap();S.paused=false;return}
+  if(S.paused)return;
+  mapOpen=true;S.paused=true;S.mapAt=performance.now();$('#mapView').hidden=false;tone(660,.08,'triangle',.08)}
+function drawMap(now){
+  const cnv=$('#mapCv'),box=$('#mapView').getBoundingClientRect(),T=Math.max(3,Math.floor(Math.min((box.width-32)/L.W,(box.height-70)/L.H)));
+  const d=Math.min(2,devicePixelRatio||1),w=L.W*T,h=L.H*T;
+  if(cnv.width!==Math.round(w*d)||cnv.height!==Math.round(h*d)){cnv.width=Math.round(w*d);cnv.height=Math.round(h*d);cnv.style.width=w+'px';cnv.style.height=h+'px'}
+  const c=cnv.getContext('2d');c.setTransform(d,0,0,d,0,0);const th=L.theme;
+  c.fillStyle=th.bg;c.fillRect(0,0,w,h);
+  for(let y=0;y<L.H;y++)for(let x=0;x<L.W;x++){const v=L.g[y][x],k=kk(x,y);if(v==='v')continue;
+    if(v==='#'||v==='z'||v==='s'||v==='x'||(v==='i'&&L.revealed.has(k)))c.fillStyle=v==='x'?'#c9a46e':v==='i'?'#9b5cff':wallColors(x,y)[0];
+    else c.fillStyle=L.water.has(k)?'#4bb5f5':L.mystery.has(k)?'#e4d6ff':v==='l'?'#c27a3a':(x+y)%2?th.floorA:th.floorB;
+    c.fillRect(x*T,y*T,T,T)}
+  const dot=(x,y,r,col,ring)=>{c.fillStyle=col;c.beginPath();c.arc((x+.5)*T,(y+.5)*T,Math.max(1.5,T*r),0,7);c.fill();if(ring){c.strokeStyle=ring;c.lineWidth=Math.max(1,T*.12);c.stroke()}};
+  for(const s of L.spikes){c.fillStyle=s.always?'#4f7dff':'#8c93a8';c.fillRect(s.x*T+T*.2,s.y*T+T*.2,T*.6,T*.6)}
+  for(const[k,[dx,dy]]of L.conv){const[x,y]=k.split(',').map(Number);c.fillStyle='#5b5f73';c.fillRect(x*T,y*T,T,T);dot(x+dx*.2,y+dy*.2,.15,'#ffd23f')}
+  for(const[k]of L.pads){const[x,y]=k.split(',').map(Number);dot(x,y,.35,'#ff4f6d')}
+  for(const[k]of L.boost){const[x,y]=k.split(',').map(Number);c.fillStyle='#ffc21a';c.fillRect(x*T,y*T,T,T)}
+  for(const b of L.buttons)dot(b.x,b.y,.4,b.n<=(S.seq||0)?'#3fd17a':'#ff7a1a','#2b2350');
+  for(const gt of L.gates){c.fillStyle='#7a4a1f';c.fillRect(gt.x*T+T*.1,gt.y*T+T*.1,T*.8,T*.8)}
+  for(const m of L.movers){c.fillStyle='rgba(60,40,30,.3)';c.fillRect(m.x*T,m.track[0]*T,T,m.track.length*T);c.fillStyle='#6b7085';c.fillRect(m.x*T,m.ay*T,T,T)}
+  for(const[k,col]of L.doors)if(!S.opened.has(col)){const[x,y]=k.split(',').map(Number);c.fillStyle=KEY_COLORS[col];c.fillRect(x*T,y*T,T,T)}
+  for(const p of L.portalList)dot(p.x,p.y,.4,'#ffffff',PORTAL_COLORS[p.c]);
+  for(const k of S.candies){const[x,y]=k.split(',').map(Number);dot(x,y,.2,'#ff5da2')}
+  for(const it of L.items)if(!it.got)dot(it.x,it.y,.25,'#ffe14d','#c99a00');
+  for(const q of L.keys)if(!S.gotKeys.has(q.c))dot(q.x,q.y,.38,KEY_COLORS[q.c],'#2b2350');
+  for(const f of L.flags)dot(f.x,f.y,.25,f.got?'#e8384f':'#ffffff','#e8384f');
+  for(const gh of L.ghosts)dot(gh.ax??gh.x,gh.ay??gh.y,.3,'#2b2350');
+  for(const ch of S.chasers)dot(ch.ax,ch.ay,.42,'#e8384f','#2b2350');
+  cEmoji(c,'⭐',(L.exit.x+.5)*T,(L.exit.y+.5)*T,Math.max(10,T*1.4));
+  const p=.5+.5*Math.sin(now/180);dot(S.ax,S.ay,.5+p*.35,'rgba(255,79,154,.35)');dot(S.ax,S.ay,.42,'#ff4f9a','#ffffff')}
+$('#mapToggle').onclick=toggleMap;
+$('#mapView').onclick=toggleMap;
+
+// ---------- particles / confetti / trails ----------
+const fx=$('#fx'),fctx=fx.getContext('2d');let parts=[];
+function sizeFx(){fx.width=innerWidth*DPR;fx.height=innerHeight*DPR}addEventListener('resize',sizeFx);
+function toScreen(x,y){const r=$('#board').getBoundingClientRect();if(!R3.cam)return[r.left,r.top];
+  const v=new THREE.Vector3(x+.5,.5,y+.5).project(R3.cam);return[r.left+(v.x+1)/2*r.width,r.top+(1-v.y)/2*r.height]}
+function burst(x,y,col,count=14){
+  if(!L)return;const[sx,sy]=toScreen(x,y);
+  for(let i=0;i<count;i++){const a=Math.random()*7,v=1.5+Math.random()*3;parts.push({x:sx,y:sy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,life:1,col,s:3+Math.random()*4,g:.08})}}
+function trail(x,y){
+  const t=wear.trail&&shopItem(wear.trail);if(!t||!L)return;const[sx,sy]=toScreen(x,y);
+  if(t.id==='rainbow'){for(let i=0;i<4;i++)parts.push({x:sx+(Math.random()-.5)*10,y:sy+6,vx:(Math.random()-.5)*.6,vy:-.3,life:.9,col:`hsl(${(performance.now()/4+i*60)%360},90%,60%)`,s:7,g:0});return}
+  parts.push({x:sx+(Math.random()-.5)*12,y:sy,vx:(Math.random()-.5)*.8,vy:-.6-Math.random()*.6,life:1,e:t.e,s:14+Math.random()*6,g:-.01})}
+function confetti(){const cols=['#ff5da2','#ffc93c','#6c4cf5','#2f9e44','#2f9bf0','#ff8a3d'];
+  for(let i=0;i<140;i++)parts.push({x:Math.random()*innerWidth,y:-20-Math.random()*200,vx:(Math.random()-.5)*3,vy:2+Math.random()*3,life:2.5,col:cols[i%cols.length],s:5+Math.random()*6,g:.05,rot:Math.random()*6})}
+function drawFx(dt){
+  if(fx.width!==Math.round(innerWidth*DPR))sizeFx();
+  fctx.setTransform(DPR,0,0,DPR,0,0);fctx.clearRect(0,0,innerWidth,innerHeight);if(!parts.length)return;
+  parts=parts.filter(p=>(p.life-=dt/1000)>0);
+  for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vy+=p.g;fctx.globalAlpha=Math.min(1,p.life);fctx.fillStyle=p.col;
+    if(p.e){cEmoji(fctx,p.e,p.x,p.y,p.s,Math.min(1,p.life))}
+    else if(p.rot!=null){p.rot+=.1;fctx.save();fctx.translate(p.x,p.y);fctx.rotate(p.rot);fctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);fctx.restore()}
+    else{fctx.beginPath();fctx.arc(p.x,p.y,p.s/2,0,7);fctx.fill()}}
+  fctx.globalAlpha=1}
+
+// ---------- boot ----------
+function start(data){
+  sizeFx();renderChars();
+  if(data&&data.screen==='game'&&data.level)startLevel(data.level);else show(['levels','shop'].includes(data&&data.screen)?data.screen:'home');
+  requestAnimationFrame(frame)}
+window.claude?.hot?.snapshot?.(()=>({screen:currentScreen,level:L?L.n:null}));
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+</script>
