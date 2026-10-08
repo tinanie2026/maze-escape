@@ -230,7 +230,7 @@ const THEMES=[
 ];
 const KEY_COLORS=['#ffc21a','#2f9bf0','#ff4f9a'];
 const KEY_NAMES=['yellow','blue','pink'];
-const PORTAL_COLORS=['#9b5cff','#13c4a3','#ff7a1a','#ff4f9a'];
+const PORTAL_COLORS=['#9b5cff','#13c4a3','#ff7a1a','#ff4f9a','#2f9bf0'];
 const ITEMS={
   boots:{e:'⚡',say:'Zoom boots! Super fast for a bit!'},
   shield:{e:'🛡️',say:'Shield! Nothing can hurt you for a bit!'},
@@ -253,7 +253,7 @@ const WORLDS=[{name:'Hand-Drawn Adventures',icon:'✏️',t:0},{t:1},{t:5},{t:6}
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function themeFor(n){return THEMES[WORLDS[Math.min(4,Math.floor((n-1)/5))].t]}
 function blank(n,W,H){return{n,d:n,W,H,g:[],start:null,exit:null,candies:new Set(),keys:[],doors:new Map(),portals:new Map(),portalList:[],
-  ghosts:[],arrows:[],spikes:[],items:[],chasers:[],water:new Set(),mystery:new Set(),conv:new Map(),pads:new Map(),gates:[],movers:[],boost:new Map(),buttons:[],boats:[],flags:[],revealed:new Set(),fog:0,par:0,timeLimit:0,timed:false,theme:themeFor(n),exitIcon:themeFor(n).exit,name:''}}
+  ghosts:[],arrows:[],spikes:[],items:[],chasers:[],water:new Set(),mystery:new Set(),conv:new Map(),pads:new Map(),gates:[],movers:[],boost:new Map(),buttons:[],fallZone:new Set(),spinners:[],boats:[],flags:[],revealed:new Set(),fog:0,par:0,timeLimit:0,timed:false,theme:themeFor(n),exitIcon:themeFor(n).exit,name:''}}
 // 's' hidden room wall (opens after the button sequence), '.' floor, 'z' secret door (looks like a wall, slides open), 'l' fake low wall to jump, '#' wall, 'x' cracked wall (a wall until smashed with the hammer), 'i' invisible wall, 'v' open sky (written '_' in the hand-drawn maps)
 function isFloor(L,x,y){if(x<0||y<0||x>=L.W||y>=L.H)return false;const v=L.g[y][x];return v==='.'||v==='z'}
 function floorCount(L,x,y){let c=0;for(const[dx,dy]of DIRS)if(isFloor(L,x+dx,y+dy))c++;return c}
@@ -341,13 +341,14 @@ function parseMap(n,rows,name,exitIcon,theme){
     else if(IT[c])L.items.push({x,y,t:IT[c]});else if(c==='X')return'x';else if(c==='E'||c==='N')return'#';
     else if(c==='Z')return'z';else if(c==='L')return'l';
     else if(c==='O')L.gates.push({x,y,phase:(x*.17+y*.29)%1});else if(c==='M')movers.push({x,y});
-    else if('pq1234'.includes(c))pts[c]={x,y};else if(c==='i')return'i';else if(c==='_')return'v';else if(c==='J')return'.';
+    else if('pq123456'.includes(c))pts[c]={x,y};else if(c==='i')return'i';else if(c==='_')return'v';else if(c==='J')return'.';
     else if(c==='~'||c==='B'){L.water.add(kk(x,y));if(c==='B')boats.push({x,y})}
     else if(c===',')L.mystery.add(kk(x,y));else if(c==='F')L.flags.push({x,y});
     else if(CONV[c])L.conv.set(kk(x,y),CONV[c]);
     else if(BOOST[c])L.boost.set(kk(x,y),BOOST[c]);else if(BUTTONS.includes(c))L.buttons.push({x,y,n:BUTTONS.indexOf(c)+1});else if(c==='Ω')return's';
+    else if(c==='¦')L.fallZone.add(kk(x,y));else if(c==='✳'){L.spinners.push({x,y,len:2,speed:Math.PI*2/2600,a:L.spinners.length*Math.PI});return'#'}
     return c==='#'?'#':'.'}));
-  [['P','Q',0],['p','q',1],['1','2',2],['3','4',3]].forEach(([a,b,c])=>{const A=pts[a],B=pts[b];if(!A||!B)return;
+  [['P','Q',0],['p','q',1],['1','2',2],['3','4',3],['5','6',4]].forEach(([a,b,c])=>{const A=pts[a],B=pts[b];if(!A||!B)return;
     L.portals.set(kk(A.x,A.y),B);L.portals.set(kk(B.x,B.y),A);L.portalList.push({...A,c},{...B,c})});
   // moving walls slide up and down their whole column of floor
   movers.forEach((m,i)=>{let a=m.y,z=m.y;while(isFloor(L,m.x,a-1))a--;while(isFloor(L,m.x,z+1))z++;
@@ -679,6 +680,63 @@ const SPRINT={name:'Spike Sprint',icon:'🌿',bg:'#e3f1e6',floorA:'#ffffff',floo
 function level10(){const L=parseMap(10,LEVEL10,'Spike Sprint','🏁',SPRINT);L.canJump=true;L.startHearts=7;
   // the beetle patrols the middle of line 2, leaving the landing spot and the spikes clear
   const gh=L.ghosts[0];gh.path=[];for(let x=16;x<=19;x++)gh.path.push({x,y:9});gh.i=1;gh.x=17;gh.y=9;return L}
+// Level 11 is the green drawing with all the teleporting: zoom down the oval's lanes, then portal after portal
+// (tall box, stair ramp, hook, the big blob with its spinning saws), drop down the falling shaft, and sneak past
+// the two sleeping bears to the finish.
+const LEVEL11=[
+ '####################################',
+ '####################################',
+ '##S#...#P#####Q#####################',
+ '##⇓#.#⇓#.#####.#####################',
+ '##.#.#.#.#####.#####################',
+ '##.#.#.#.#####.#1.##################',
+ '##.#C#.#.#####.##.##################',
+ '##C#.#C#.#####.##.##################',
+ '##.#.#.#.#####.C..############5#####',
+ '##.#.#.#.##############q.###.....###',
+ '##.#⇑#.#.####2A.########.###.C...###',
+ '##...#...######.########.###.....###',
+ '###############.A..#####A###.....###',
+ '##################.C3###.###..✳..###',
+ '########################.###.....###',
+ '#############4##...#####.###.....###',
+ '#############.##.#.#####A###...C.###',
+ '#############.##p#.#####.###.....###',
+ '#############..C...#####.###.....###',
+ '########################.###..✳..###',
+ '###############6########A###.....###',
+ '############¦¦¦F¦¦¦#####.###.....###',
+ '############¦¦¦¦¦¦¦#####.###.....###',
+ '############¦¦¦¦¦¦¦#####h###.....###',
+ '############A¦¦¦AAA#####.###.....###',
+ '############¦¦¦¦¦¦¦#####..C......###',
+ '############¦¦C¦¦¦¦#################',
+ '############¦¦¦¦¦¦¦#################',
+ '############AAA¦¦¦A#################',
+ '############¦¦¦¦¦¦¦#################',
+ '############¦¦¦¦C¦¦#################',
+ '############¦¦¦¦¦¦¦#################',
+ '############A¦¦¦AAA#################',
+ '############¦¦C¦¦¦¦#################',
+ '############¦¦¦¦¦¦¦#################',
+ '############AAA¦¦¦A#################',
+ '############¦¦¦¦¦¦¦#################',
+ '############.......#################',
+ '###..............................###',
+ '###..............................###',
+ '###.....###############..........###',
+ '###..C....................C......###',
+ '###......#############...........###',
+ '###.........G..T...G.............###',
+ '####################################',
+ '####################################'];
+const TANGLE={name:'Teleport Tangle',icon:'🌀',bg:'#e3f1e6',floorA:'#ffffff',floorB:'#eef7f0',wall:'#1f7a3e',wallTop:'#43b066',wallEdge:'#0e4a24',baddie:'🐻',decor:'',exit:'🏁',dark:false};
+function level11(){const L=parseMap(11,LEVEL11,'Teleport Tangle','🏁',TANGLE);L.canJump=true;L.startHearts=5;
+  // the whole shaft falls, flag, candies and spike rows included; the last portal drops you straight in
+  L.fallZone.add(kk(15,20));for(let y=21;y<=36;y++)for(let x=12;x<=18;x++)L.fallZone.add(kk(x,y));
+  // the two sleeping bears each guard their own side of the finish
+  [[9,13],[17,21]].forEach(([a,b],i)=>{const gh=L.ghosts[i];gh.path=[];for(let x=a;x<=b;x++)gh.path.push({x,y:43});gh.i=i?2:2;gh.x=gh.path[2].x;gh.y=43});
+  return L}
 function level1(){return parseMap(1,LEVEL1,'Hand-Drawn Garden','🏆')}
 function level2(){return parseMap(2,LEVEL2,'Swirl Valley','🎁')}
 
@@ -791,7 +849,7 @@ function finish(L){
   L.par=Math.ceil(sum*1.25)+L.candies.size*6+4;
   if(L.timed)L.timeLimit=Math.ceil(L.par*0.32)+25}
 
-function makeLevel(n){return n===1?level1():n===2?level2():n===3?level3():n===4?level4():n===5?level5():n===6?level6():n===7?level7():n===8?level8():n===9?level9():n===10?level10():genLevel(n)}
+function makeLevel(n){return n===1?level1():n===2?level2():n===3?level3():n===4?level4():n===5?level5():n===6?level6():n===7?level7():n===8?level8():n===9?level9():n===10?level10():n===11?level11():genLevel(n)}
 function solvable(L){
   if(L.buttons&&L.buttons.length){const r=bfs(L,L.start.x,L.start.y,()=>false);
     if(L.buttons.every(b=>r.dist.has(kk(b.x,b.y))))L.g=L.g.map(row=>row.map(v=>v==='s'?'.':v))}
@@ -952,7 +1010,7 @@ function renderLevels(){
     const grid=document.createElement('div');grid.className='lv-grid';
     for(let i=1;i<=5;i++){const n=w*5+i,b=document.createElement('button');b.className='lv';
       const st=progress.stars[n]||0,locked=n>progress.unlocked;
-      const badge=n<=10?'✏️':isBoss(n)?'🦖':isTimed(n)?'⏱️':isNight(n)?'🌙':'';
+      const badge=n<=11?'✏️':isBoss(n)?'🦖':isTimed(n)?'⏱️':isNight(n)?'🌙':'';
       b.disabled=locked;b.setAttribute('aria-label',locked?`Level ${n}, locked`:`Level ${n}, ${st} stars`);
       b.innerHTML=(locked?'🔒':`${n}<span class="st">${'★'.repeat(st)}${'☆'.repeat(3-st)}</span>`)+(badge?`<span class="badge">${badge}</span>`:'');
       if(n===progress.unlocked){b.classList.add('current');cur=b}
@@ -972,8 +1030,9 @@ const TIPS={
   8:['⚡','Zap Fortress','<ul><li>⚡ The walls are electric! Touch one and you zap back to the start.</li><li>🔷 These spikes never go down. JUMP over them!</li><li>⌨️ Press Space to jump, or tap the ⤴ button. You jump 2 squares the way you are facing.</li><li>🔑 The key is inside the C. Jump in, jump out, then open the treasure box.</li></ul>'],
   9:['✏️','Notebook Doodle','<ul><li>⚡ Yellow boost pads make you ZOOM super fast until you hit a wall!</li><li>⬇️ Zigzag down the striped tower.</li><li>🔢 In the hook, press the buttons in the right order: 1, then 2, then 3. Wrong order and they switch off!</li><li>🤫 The right order opens a secret room with a portal.</li></ul>'],
   10:['🌿','Spike Sprint','<ul><li>❤️ You start with 7 hearts!</li><li>⚡ Zoom pads shoot you along the path.</li><li>🔷 Jump the spikes one after another and land in the safe spots between them. Triples are tricky!</li><li>🌀 Portal pads hop you past walls and over big spike fields.</li><li>🏁 Jump over the last spike to land on F.</li></ul>'],
-  11:['🌙','A dark maze!','<ul><li>🌙 It is dark: you only see what is close. The exit twinkles ✨, and a 🔦 lantern from the shop helps.</li><li>🔑🔑 Two keys: open the yellow door first, then find the blue key.</li><li>✨ Glowing bubbles are power-ups: ⚡ boots, ❤️ heart, 🛡️ shield, 🧭 compass, ❄️ freeze, 🔨 hammer.</li></ul>'],
-  12:['⏱️','Beat the clock!','Escape before the timer runs out. Grab ⏱️ for 20 more seconds!'],
+  11:['🌀','Teleport Tangle','<ul><li>⚡ Zoom down the lanes of the oval, past the walls!</li><li>🌀 So many portals! Each one bounces you to a new part of the map.</li><li>🪚 Spinning saws sweep around. Wait until the arm swings away, then run.</li><li>⬇️ The last portal drops you down a shaft: steer left and right through the gaps.</li><li>🐻 Sneak past the sleeping bears while they snore 💤.</li></ul>'],
+  12:['⏱️','Beat the clock!','<ul><li>⏱️ Escape before the timer runs out. Grab ⏱️ for 20 more seconds!</li><li>🔑🔑 Two keys: open the yellow door first, then find the blue key.</li><li>✨ Glowing bubbles are power-ups: ⚡ boots, ❤️ heart, 🛡️ shield, 🧭 compass, ❄️ freeze, 🔨 hammer.</li></ul>'],
+  16:['🌙','A dark maze!','It is dark: you only see what is close. The exit twinkles ✨, and a 🔦 lantern from the shop helps.'],
   15:['🦖','Boss level: the Dino!','<ul><li>🦖 A hungry dino wakes up and chases you! It is slower than you, so keep moving.</li><li>🔑🔑🔑 Three keys: yellow, blue, then pink.</li></ul>'],
   17:['🦖','The Dino is everywhere!','From now on the dino is in every maze.'],
   25:['👑','The final maze!','Two dinos, three keys and the dark. Escape and you win the Rainbow Crown!'],
@@ -1023,7 +1082,8 @@ let toastT=0;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900)}
 
 // ---------- movement ----------
-const stepMs=()=>performance.now()<(S.fx.boots||0)?62:L.fall?70:105;
+const inFall=()=>!!(L&&S&&(L.fall||L.fallZone.has(kk(S.x,S.y))));
+const stepMs=()=>performance.now()<(S.fx.boots||0)?62:inFall()?70:105;
 function passable(x,y){
   if(L.g[y]&&L.g[y][x]==='x')return 'crack';
   if(L.g[y]&&L.g[y][x]==='z')return 'secret';
@@ -1037,8 +1097,8 @@ function passable(x,y){
   return 'ok'}
 function tryMove(dx,dy,run){
   if(!S||S.won||S.dead||S.paused||currentScreen!=='game')return;
-  if(L.fall&&dy)return; // falling levels: only left and right
-  if(L.fall&&S.anim&&S.anim.fall){
+  if(inFall()&&dy)return; // while falling: only left and right
+  if(S.anim&&S.anim.fall){
     if(S.anim.side)return;const nx=S.x+dx,sp=L.spikeAt.get(kk(nx,S.y));
     if(isFloor(L,nx,S.y)&&isFloor(L,S.x+dx,S.y-1)&&!(sp&&sp.always)){S.x=nx;S.anim.side=true;S.face=dx;S.dir=[dx,0]}
     return}
@@ -1139,7 +1199,7 @@ function updateBagBadge(){const n=HELPERS.reduce((a,h)=>a+(bag[h.id]||0),0);$('#
 
 function hurt(kind){
   const now=performance.now();
-  if(L.fall&&kind==='spike'){if(now<S.inv)return;SFX.hurt();burst(S.x,S.y,'#4f7dff',20);
+  if(inFall()&&kind==='spike'){if(now<S.inv)return;SFX.hurt();burst(S.x,S.y,'#4f7dff',20);
     toast(S.check.x===L.start.x&&S.check.y===L.start.y?'Ouch, spikes! Back to the top.':'Ouch, spikes! Back to the 🚩 flag.');
     S.x=S.check.x;S.y=S.check.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=now+600;return}
   if(now<S.inv||now<(S.fx.shield||0))return;
@@ -1147,7 +1207,7 @@ function hurt(kind){
   const fl=$('#flash');fl.style.opacity=.35;setTimeout(()=>fl.style.opacity=0,180);
   burst(S.x,S.y,'#ffffff',20);
   if(S.hearts<=0){fail('hearts');return}
-  toast(kind==='spike'?(L.canJump?'Ouch! Jump over the blue spikes.':'Ouch, spikes! Wait until they hide.'):kind==='dino'?'CHOMP! The 🦖 got you!':`Oops! The ${L.theme.baddie} got you!`);
+  toast(kind==='spinner'?'Ouch! A spinning saw! Wait for it to swing past.':kind==='spike'?(L.canJump?'Ouch! Jump over the blue spikes.':'Ouch, spikes! Wait until they hide.'):kind==='dino'?'CHOMP! The 🦖 got you!':`Oops! The ${L.theme.baddie} got you!`);
   S.x=S.check.x;S.y=S.check.y;S.ax=S.x;S.ay=S.y;S.anim=null;S.queued=null;S.run=null;S.inv=now+1500;S.compass=null;
   for(const c of S.chasers){c.x=c.sx;c.y=c.sy;c.ax=c.x;c.ay=c.y;c.wake=S.clock+2500;c.t0=0}}
 
@@ -1294,7 +1354,7 @@ function update(now,dt){
     else{S.ax=S.anim.fx+(S.x-S.anim.fx)*t;S.ay=S.anim.fy+(S.y-S.anim.fy)*t}}
   if(S.won||S.paused||S.dead)return;
   S.clock+=dt;
-  if(L.fall&&!S.anim&&passable(S.x,S.y+1)==='ok')doMove(0,1,false,'fall');
+  if(inFall()&&!S.anim&&passable(S.x,S.y+1)==='ok')doMove(0,1,false,'fall');
   const frozen=now<(S.fx.freeze||0);
   if(L.timeLimit){S.timeLeft-=dt/1000;if(S.timeLeft<=0){S.timeLeft=0;fail('time');return}}
   // spikes hurt when they are up under the hero
@@ -1325,6 +1385,10 @@ function update(now,dt){
     if(now>=m.next){let ni=m.i+m.dir;if(ni<0||ni>=m.track.length){m.dir=-m.dir;ni=m.i+m.dir}m.fy=m.track[m.i];m.i=ni;m.y=m.track[ni];m.t0=now;m.next=now+210}
     const t=m.t0?Math.min(1,(now-m.t0)/180):1;m.ay=m.fy==null?m.y:m.fy+(m.y-m.fy)*t;
     if(!airborne&&Math.abs(m.x-S.ax)<.6&&Math.abs(m.ay-S.ay)<.6){squish('BONK! A moving wall pushed you back to the 🚩');return}}
+  // spinning saws: an arm sweeps around its hub
+  for(const sp of L.spinners){if(!frozen)sp.a+=dt*sp.speed;
+    const dx=Math.cos(sp.a),dy=Math.sin(sp.a),px=S.ax-sp.x,py=S.ay-sp.y,t=Math.max(.4,Math.min(sp.len+.3,px*dx+py*dy));
+    if(!airborne&&!frozen&&Math.hypot(px-dx*t,py-dy*t)<.45){hurt('spinner');if(S.dead)return;break}}
   // boats never nap: wait for a gap and cross
   for(const b of L.boats){
     if(frozen){b.next=now+b.tick;continue}
@@ -1358,9 +1422,9 @@ function draw(now){
   const th=L.theme,T=tileSize(),frozen=now<(S.fx.freeze||0);
   const mw=L.W*T,mh=L.H*T;
   let tx=mw<=VW?(VW-mw)/2:Math.min(0,Math.max(VW-mw,VW/2-(S.ax+.5)*T));
-  let ty=mh<=VH?(VH-mh)/2:Math.min(0,Math.max(VH-mh,VH/2-(S.ay+.5+(L.fall?Math.min(5,VH/T*.28):0))*T));
+  let ty=mh<=VH?(VH-mh)/2:Math.min(0,Math.max(VH-mh,VH/2-(S.ay+.5+(inFall()?Math.min(5,VH/T*.28):0))*T));
   if(S.camX==null||Math.abs(S.camX-tx)>VW){S.camX=tx;S.camY=ty}
-  const ck=L.fall?.4:.18;S.camX+=(tx-S.camX)*ck;S.camY+=(ty-S.camY)*ck;
+  const ck=inFall()?.4:.18;S.camX+=(tx-S.camX)*ck;S.camY+=(ty-S.camY)*ck;
   ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle=th.bg;ctx.fillRect(0,0,VW,VH);
   ctx.translate(Math.round(S.camX),Math.round(S.camY));
   const x0=Math.max(0,Math.floor(-S.camX/T)-1),x1=Math.min(L.W,Math.ceil((VW-S.camX)/T)+1);
@@ -1411,6 +1475,12 @@ function draw(now){
   for(const m of L.movers){const x=m.x*T,y=m.ay*T;ctx.fillStyle='#6b7085';rr(x+T*.04,y+T*.02,T*.92,T*.94,T*.14);ctx.fill();
     ctx.strokeStyle='#3a3f52';ctx.lineWidth=T*.06;ctx.stroke();ctx.fillStyle='#fff';ctx.fillRect(x+T*.2,y+T*.3,T*.2,T*.16);ctx.fillRect(x+T*.6,y+T*.3,T*.2,T*.16);
     ctx.fillStyle='#2b2350';ctx.fillRect(x+T*.26,y+T*.33,T*.1,T*.12);ctx.fillRect(x+T*.64,y+T*.33,T*.1,T*.12);ctx.fillRect(x+T*.25,y+T*.66,T*.5,T*.08)}
+  for(const sp of L.spinners){const cx=(sp.x+.5)*T,cy=(sp.y+.5)*T,ex=cx+Math.cos(sp.a)*sp.len*T,ey=cy+Math.sin(sp.a)*sp.len*T;
+    ctx.strokeStyle='#6b7085';ctx.lineWidth=T*.22;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
+    ctx.save();ctx.translate(ex,ey);ctx.rotate(now/60);ctx.fillStyle='#e8384f';ctx.beginPath();
+    for(let i=0;i<16;i++){const r=i%2?T*.26:T*.4,a=i*Math.PI/8;i?ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r):ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)}ctx.closePath();ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,T*.09,0,7);ctx.fill();ctx.restore();
+    ctx.fillStyle='#3a3f52';ctx.beginPath();ctx.arc(cx,cy-lift*.5,T*.3,0,7);ctx.fill()}
   // the tiger's face from the drawing
   if(L.eyes){for(const e of L.eyes){const cx=e.x*T,cy=e.y*T-lift*.5,r=T*1.45;
       ctx.fillStyle='#fff';ctx.strokeStyle='#2b2350';ctx.lineWidth=T*.12;ctx.beginPath();ctx.ellipse(cx,cy,r,r*1.1,0,0,7);ctx.fill();ctx.stroke();
@@ -1641,6 +1711,11 @@ function build3d(){
     const base=new THREE.Mesh(new THREE.CylinderGeometry(.42,.45,.12,24),mat('#3b3f58'));base.position.y=.06;
     const top=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.06,24),mat(j.n>5?'#ff4fd8':'#ff4f6d',{roughness:.3}));top.position.y=.15;
     const ar=sprite('⏩',.4);ar.position.y=.55;g.add(base,top,ar);g.position.set(x+.5,0,y+.5);G.add(g);return{k,j,top,g}});
+  // spinning saws
+  R3.spinners=L.spinners.map(sp=>{const g=new THREE.Group();const hub=new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.3,20),mat('#3a3f52'));hub.position.y=1.15;
+    const arm=new THREE.Mesh(new THREE.BoxGeometry(sp.len,.16,.2),mat('#8c93a8',{metalness:.5}));arm.position.set(sp.len/2,.55,0);
+    const saw=new THREE.Mesh(new THREE.CylinderGeometry(.4,.4,.08,16),mat('#e8384f',{metalness:.4,roughness:.3}));saw.position.set(sp.len,.55,0);saw.castShadow=arm.castShadow=true;
+    g.add(hub,arm,saw);g.position.set(sp.x+.5,0,sp.y+.5);G.add(g);return{sp,g,saw}});
   // speed boost pads and numbered buttons
   R3.boostTex=canvasTex('boost',(g,s)=>{g.fillStyle='#ffc21a';g.fillRect(0,0,s,s);g.strokeStyle='#e8384f';g.lineWidth=s*.09;g.lineCap='round';g.lineJoin='round';
     for(const x of[.2,.5,.8]){g.beginPath();g.moveTo(s*(x-.08),s*.28);g.lineTo(s*(x+.08),s*.5);g.lineTo(s*(x-.08),s*.72);g.stroke()}});R3.boostTex.wrapS=THREE.RepeatWrapping;
@@ -1697,6 +1772,7 @@ function draw3d(now){
     if(p.j.n>5)p.top.material.color.setHSL((now/2000)%1,.85,.6)}
   for(const{gt,bars}of R3.gates){const c=!frozen&&gateClosed(gt,now);bars.position.y=c?0:-.9;
     const w=!c&&gateWarn(gt,now)&&Math.floor(now/120)%2;bars.children.forEach(b=>b.material.emissive&&b.material.emissive.set(w?'#ff2030':'#000000'));if(w){bars.position.y=-.6}}
+  for(const{sp,g,saw}of R3.spinners){g.rotation.y=-sp.a;saw.rotation.y=now/80}
   for(const{b,top}of R3.buttons){const on=b.n<=(S.seq||0);top.material.color.set(on?'#3fd17a':'#ff7a1a');top.position.y=on?.07:.12}
   R3.boostTex.offset.x=-(now/250)%1;
   for(const{m,b}of R3.movers)b.position.set(m.x+.5,.48,m.ay+.5);
@@ -1721,9 +1797,9 @@ function draw3d(now){
     h.model.earL.rotation.z=.3+Math.sin(now/330)*.08;h.model.earR.rotation.z=-.55-Math.sin(now/330)*.08;h.model.position.y=walk?0:Math.abs(Math.sin(now/400))*.02}
   h.shield.visible=now<(S.fx.shield||0);h.shield.material.opacity=.18+pul*.15;
   // camera: tilted view that follows the hero (looks further ahead while falling)
-  const asp=R3.cam.aspect||1,look=L.fall?3.5:0,z=R3.zoom*(L.fall?1.1:1)*(asp<1?Math.min(1.7,1/Math.sqrt(asp)):1),tx=S.ax+.5,tz=S.ay+.5+look;
+  const asp=R3.cam.aspect||1,look=inFall()?3.5:0,z=R3.zoom*(inFall()?1.1:1)*(asp<1?Math.min(1.7,1/Math.sqrt(asp)):1),tx=S.ax+.5,tz=S.ay+.5+look;
   const want3=new THREE.Vector3(tx,10.5*z,tz+7.5*z);
-  if(!R3.camPos||R3.camPos.distanceTo(want3)>30)R3.camPos=want3.clone();R3.camPos.lerp(want3,L.fall?.25:.12);
+  if(!R3.camPos||R3.camPos.distanceTo(want3)>30)R3.camPos=want3.clone();R3.camPos.lerp(want3,inFall()?.25:.12);
   R3.cam.position.copy(R3.camPos);R3.cam.lookAt(R3.camPos.x,0,R3.camPos.z-7.5*z);
   R3.sun.position.set(tx+6,16,tz+9);R3.sun.target.position.set(tx,0,tz);
   if(L.fog){const r=L.fog+(S.lantern?3:0),dist=R3.cam.position.distanceTo(new THREE.Vector3(tx,0,tz-look));
@@ -1755,6 +1831,7 @@ function drawMap(now){
   for(const[k,[dx,dy]]of L.conv){const[x,y]=k.split(',').map(Number);c.fillStyle='#5b5f73';c.fillRect(x*T,y*T,T,T);dot(x+dx*.2,y+dy*.2,.15,'#ffd23f')}
   for(const[k]of L.pads){const[x,y]=k.split(',').map(Number);dot(x,y,.35,'#ff4f6d')}
   for(const[k]of L.boost){const[x,y]=k.split(',').map(Number);c.fillStyle='#ffc21a';c.fillRect(x*T,y*T,T,T)}
+  for(const sp of L.spinners){c.strokeStyle='#e8384f';c.lineWidth=Math.max(2,T*.25);c.beginPath();c.moveTo((sp.x+.5)*T,(sp.y+.5)*T);c.lineTo((sp.x+.5+Math.cos(sp.a)*sp.len)*T,(sp.y+.5+Math.sin(sp.a)*sp.len)*T);c.stroke()}
   for(const b of L.buttons)dot(b.x,b.y,.4,b.n<=(S.seq||0)?'#3fd17a':'#ff7a1a','#2b2350');
   for(const gt of L.gates){c.fillStyle='#7a4a1f';c.fillRect(gt.x*T+T*.1,gt.y*T+T*.1,T*.8,T*.8)}
   for(const m of L.movers){c.fillStyle='rgba(60,40,30,.3)';c.fillRect(m.x*T,m.track[0]*T,T,m.track.length*T);c.fillStyle='#6b7085';c.fillRect(m.x*T,m.ay*T,T,T)}
